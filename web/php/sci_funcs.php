@@ -2,8 +2,8 @@
 include_once "vars.php";
 
 // NYI: 
-// pre-emptively look for looping of coefficient settings, instead of just
-// looking for an infinite loop
+// make input order independent
+// prevent fractional coefficients
 // add CSS/HTML(JS?) output to prettify output
 
 class EqSide {
@@ -223,22 +223,30 @@ class EqSide {
         $this->start_worksheet();
     }
                         
-    public function changeCoefficient($elemorcpd, $coef, $is_diff=false) {
+    public function changeCoefficient($elemorcpd, $coef, &$steps, 
+            $is_diff=false) {
         if (isCompound($elemorcpd)) {
-            $this->applyCoefficientChange([$elemorcpd], $coef, $is_diff);
+            $this->applyCoefficientChange([$elemorcpd], $coef, $steps, 
+                    $is_diff);
         } else {
             $this->applyCoefficientChange($this->cpds_by_elem[$elemorcpd],
-                    $coef, $is_diff);
+                    $coef, $steps, $is_diff);
         }
     }
 
-    private function applyCoefficientChange($cpds, $coef, $is_diff) {
+    private function applyCoefficientChange($cpds, $coef, &$steps, 
+            $is_diff) {
         $orig_coef = 0;
         foreach ($cpds as $i=>$compound) {
             if ($is_diff) {
                 $orig_coef = $this->comps[$compound]["#"];
             }
             $this->comps[$compound]["#"] = $orig_coef + $coef;
+            $cur_step = "-- new ".$compound." coefficient ";
+            $cur_step .= "is ".($orig_coef + $coef);
+            if (count($steps) > 0) {
+                $steps[count($steps)] = $cur_step;
+            }
         }
     }
 
@@ -451,7 +459,7 @@ class Equation {
                 }    
                 $possible_elems = $this->wksheet[$possible_elem_sym];
             } else {
-                // look for one compound having element:more than one compound
+                // for O/H look for one compound for element on each side first
                 foreach ($this->cpds_by_elem as $elem => $cpds) {
                     if ($elem != "O" && $elem != "H") {
                         continue;
@@ -461,12 +469,12 @@ class Equation {
                     }
                     $rxcnt = count($cpds[0]);
                     $prcnt = count($cpds[1]);
-                    if (($rxcnt == 1 && $prcnt > 1) || 
-                            ($rxcnt > 1 && $prcnt == 1)) {
+                    if ($rxcnt == 1 && $prcnt == 1) {
                         $possible_elems[$elem] = $this->wksheet[$elem];
                     }
                 }
-                // if needed, look for one compound element on each side
+                // if needed, look for one compound having element:more
+                // than one compound
                 if (count($possible_elems) < 1) {
                     foreach ($this->cpds_by_elem as $elem => $cpds) {
                         if ($elem != "O" && $elem != "H") {
@@ -477,12 +485,14 @@ class Equation {
                         }
                         $rxcnt = count($cpds[0]);
                         $prcnt = count($cpds[1]);
-                        if ($rxcnt == 1 && $prcnt == 1) {
+                        if (($rxcnt == 1 && $prcnt > 1) || 
+                                ($rxcnt > 1 && $prcnt == 1)) {
                             $possible_elems[$elem] = $this->wksheet[$elem];
                         }
                     }
                 }
-                // if needed, look for few compounds having element:many compounds
+                // if needed, look for few compounds having element:many 
+                // compounds
                 if (count($possible_elems) < 1) {
                     foreach ($this->cpds_by_elem as $elem => $cpds) {
                         if ($elem != "O" && $elem != "H") {
@@ -667,15 +677,14 @@ class Equation {
         }
     }
  
-    //NYI: proactively look for repeated application of coefficients to
-    //detect loops. Need to track elem, reactant v product, and coef
-    //NYI: Get NaNO3 + NH4OH = NaH + NH4NO3 + HNO3 to balance. Must
-    //code compareBalancingofWorksheets() to do so. Proper solution in
-    //this case is to bump up coefficient of the two single-H products.
-    //Because at that stage the diff is 2, but only 2 compounds have 
-    //a single H. Therefore, need to try various combos to balance H
-    //to see which has least effect on other balanced elements
+    //NYI: Ignore order of input. Right now
+    // NaNO3 + NH4OH = NaH + NH4NO3 + HNO3 balances. But 
+    // NH4OH + NaNO3 = NaH + NH4NO3 + HNO3 gives division by 0.
+    // Prevent fractional coefficients (e.g., C4H10 + O2 = CO2 + H2O)
+    // The butane combustion above also give div by 0 when order is
+    // changed.
     private function updateWorksheet($elem, $first_balance=false){
+        $empty = [];
         // find compound(s) for given element to balance
         $rxcount = $this->wksheet[$elem][0];
         $prcount = $this->wksheet[$elem][1];
@@ -687,14 +696,14 @@ class Equation {
                 $cur_step = "Try to balance ".$elem."'s by multiplying ";
                 $cur_step .= "reactants' coefficients by ".$rxcoef;
                 $this->steps[count($this->steps)] = $cur_step;
-                $this->rxnts->changeCoefficient($elem, $rxcoef);
+                $this->rxnts->changeCoefficient($elem, $rxcoef, $this->steps);
                 $this->applyWorksheetChanges("reactant");
             }
             if ($prcoef > 1) {
                 $cur_step = "Try to balance ".$elem."'s by multiplying ";
                 $cur_step .= "products' coefficients by ".$prcoef;
                 $this->steps[count($this->steps)] = $cur_step;
-                $this->prods->changeCoefficient($elem, $prcoef);
+                $this->prods->changeCoefficient($elem, $prcoef, $this->steps);
                 $this->applyWorksheetChanges("product");
             }
             return true;
@@ -735,9 +744,11 @@ class Equation {
             
             foreach ($prefside as $cpd=>$elems) {
                 if ($ps_str == "reactant") {
-                    $this->rxnts->changeCoefficient($cpd, $coef_diff, true);
+                    $this->rxnts->changeCoefficient($cpd, $coef_diff, 
+                            $this->steps, true);
                 } else {
-                    $this->prods->changeCoefficient($cpd, $coef_diff, true);
+                    $this->prods->changeCoefficient($cpd, $coef_diff, 
+                            $this->steps, true);
                 }
             }
             $this->applyWorksheetChanges($ps_str);
@@ -765,10 +776,10 @@ class Equation {
                 $orig_coef = $elems["#"];
                 if ($ps_str == "reactant" ) {
                     $this->rxnts->changeCoefficient($cpd,
-                            $count_diff / $elems[$elem]);
+                            $count_diff / $elems[$elem], $empty);
                 } else {
                     $this->prods->changeCoefficient($cpd,
-                            $count_diff / $elems[$elem]);
+                            $count_diff / $elems[$elem], $empty);
                 }
                 $this->applyWorksheetChanges($ps_str);
                 $wks2 = $this->wksheet;
@@ -782,9 +793,11 @@ class Equation {
                     $cpds_to_change[$cpd] = $count_diff / $elems[$elem];
                 }
                 if ($ps_str == "reactant" ) {
-                    $this->rxnts->changeCoefficient($cpd, $orig_coef);
+                    $this->rxnts->changeCoefficient($cpd, $orig_coef, 
+                            $empty);
                 } else {
-                    $this->prods->changeCoefficient($cpd, $orig_coef);
+                    $this->prods->changeCoefficient($cpd, $orig_coef, 
+                            $empty);
                 }
                 $this->applyWorksheetChanges($ps_str);
             }
@@ -815,14 +828,14 @@ class Equation {
                 foreach ($coefs_to_try as $i=>$coefs) {
                     if ($ps_str == "reactant" ) {
                         $this->rxnts->changeCoefficient($cpd1, 
-                                $coefs[0], true);
+                                $coefs[0], $empty, true);
                         $this->rxnts->changeCoefficient($cpd2, 
-                                $coefs[1], true);
+                                $coefs[1], $empty, true);
                     } else {
                         $this->prods->changeCoefficient($cpd1, 
-                                $coefs[0], true);
+                                $coefs[0], $empty, true);
                         $this->prods->changeCoefficient($cpd2, 
-                                $coefs[1], true);
+                                $coefs[1], $empty, true);
                     }
                     $this->applyWorksheetChanges($ps_str);
                     $wks2 = $this->wksheet;
@@ -842,11 +855,15 @@ class Equation {
                         $cpds_to_change[$cpd2] = $coefs[1];
                     }
                     if ($ps_str == "reactant" ) {
-                        $this->rxnts->changeCoefficient($cpd1, $orig_coef1);
-                        $this->rxnts->changeCoefficient($cpd2, $orig_coef2);
+                        $this->rxnts->changeCoefficient($cpd1, $orig_coef1, 
+                                $empty);
+                        $this->rxnts->changeCoefficient($cpd2, $orig_coef2, 
+                                $empty);
                     } else {
-                        $this->prods->changeCoefficient($cpd1, $orig_coef1);
-                        $this->prods->changeCoefficient($cpd2, $orig_coef2);
+                        $this->prods->changeCoefficient($cpd1, $orig_coef1, 
+                                $empty);
+                        $this->prods->changeCoefficient($cpd2, $orig_coef2, 
+                                $empty);
                     }
                     $this->applyWorksheetChanges($ps_str);
                 }
@@ -854,11 +871,13 @@ class Equation {
             $is_diff = count($cpds_to_change) > 1;
             if ($ps_str == "reactant" ) {
                 foreach ($cpds_to_change as $cpd=>$coef) {
-                    $this->rxnts->changeCoefficient($cpd, $coef, $is_diff);
+                    $this->rxnts->changeCoefficient($cpd, $coef, 
+                            $this->steps, $is_diff);
                 }
             } else {
                 foreach ($cpds_to_change as $cpd=>$coef) {
-                    $this->prods->changeCoefficient($cpd, $coef, $is_diff);
+                    $this->prods->changeCoefficient($cpd, $coef, 
+                            $this->steps, $is_diff);
                 }
             }
             $this->applyWorksheetChanges($ps_str);
@@ -881,7 +900,7 @@ class Equation {
                 $cur_step = "Try to balance ".$elem."'s by multiplying ";
                 $cur_step .= "reactants' coefficients by ".$rxcoef;
                 $this->steps[count($this->steps)] = $cur_step;
-                $this->rxnts->changeCoefficient($elem, $rxcoef);
+                $this->rxnts->changeCoefficient($elem, $rxcoef, $this->steps);
                 $this->applyWorksheetChanges("reactant");
             }
             if ($ps_str == "product") {
@@ -889,7 +908,7 @@ class Equation {
                 $cur_step = "Try to balance ".$elem."'s by multiplying ";
                 $cur_step .= "products' coefficients by ".$prcoef;
                 $this->steps[count($this->steps)] = $cur_step;
-                $this->prods->changeCoefficient($elem, $prcoef);
+                $this->prods->changeCoefficient($elem, $prcoef, $this->steps);
                 $this->applyWorksheetChanges("product");
             }
             return true;
@@ -936,8 +955,6 @@ class Equation {
         $cur_elem = $this->findElemToBalance();
         $balanceable = count($this->steps) < $this->MAX_STEPS &&
                 $this->updateWorksheet($cur_elem, true);
-        //while (count($this->steps) < $this->MAX_STEPS &&
-        //        $balanceable && !$this->isBalanced()) {
         while ($balanceable && !$this->isBalanced()) {
             $cur_elem = $this->findElemToBalance();
             $balanceable = count($this->steps) < $this->MAX_STEPS &&
@@ -983,7 +1000,6 @@ class Equation {
         $outstr .= "</font>\n";
         
         echo $outstr; 
-        echo "<br><hr><br>\n";
     }
 
     public function dumpWS(&$ws, $header) {
@@ -1003,3 +1019,4 @@ class Equation {
         }
     }
 }
+
