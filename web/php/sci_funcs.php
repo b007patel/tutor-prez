@@ -2,8 +2,7 @@
 include_once "vars.php";
 
 // NYI: 
-// make input order independent
-// prevent fractional coefficients
+// refactor code into more functions
 // add CSS/HTML(JS?) output to prettify output
 
 class EqSide {
@@ -677,12 +676,6 @@ class Equation {
         }
     }
  
-    //NYI: Ignore order of input. Right now
-    // NaNO3 + NH4OH = NaH + NH4NO3 + HNO3 balances. But 
-    // NH4OH + NaNO3 = NaH + NH4NO3 + HNO3 gives division by 0.
-    // Prevent fractional coefficients (e.g., C4H10 + O2 = CO2 + H2O)
-    // The butane combustion above also give div by 0 when order is
-    // changed.
     private function updateWorksheet($elem, $first_balance=false){
         $empty = [];
         // find compound(s) for given element to balance
@@ -767,19 +760,21 @@ class Equation {
             // initialize defender-challenger worksheets with largest
             // imbalance possible
             $wks1 = $this->wksheet;
-            foreach ($wks1 as $elem=>$cnts) {
-                $wks1[$elem] = [32767, 0];
+            foreach ($wks1 as $e=>$cnts) {
+                $wks1[$e] = [32767, 0];
             }
             $wks2 = $wks1;
             $cpds_to_change = [];
             foreach ($cpds_to_try as $cpd=>$elems) {
                 $orig_coef = $elems["#"];
+                $factor_coef = $count_diff + $elems[$elem];
+                if ($count_diff % $elems[$elem] == 0) {
+                    $factor_coef = $count_diff / $elems[$elem];
+                }
                 if ($ps_str == "reactant" ) {
-                    $this->rxnts->changeCoefficient($cpd,
-                            $count_diff / $elems[$elem], $empty);
+                    $this->rxnts->changeCoefficient($cpd, $factor_coef, $empty);
                 } else {
-                    $this->prods->changeCoefficient($cpd,
-                            $count_diff / $elems[$elem], $empty);
+                    $this->prods->changeCoefficient($cpd, $factor_coef, $empty);
                 }
                 $this->applyWorksheetChanges($ps_str);
                 $wks2 = $this->wksheet;
@@ -790,7 +785,7 @@ class Equation {
                             $elem);
                 if ($foundNewBalanced) {
                     $wks1 = $wks2;
-                    $cpds_to_change[$cpd] = $count_diff / $elems[$elem];
+                    $cpds_to_change[$cpd] = $factor_coef;
                 }
                 if ($ps_str == "reactant" ) {
                     $this->rxnts->changeCoefficient($cpd, $orig_coef, 
@@ -920,6 +915,67 @@ class Equation {
         return false;
     }
 
+    private function reduceCoefficients() {
+        $cf = 1;
+        $low_coefs = [];
+        $factor_pair_cpds = [];
+        foreach ($this->rxnts->getCompoundList() as $cpd => $elems) {
+            $coef_count = count($low_coefs);
+            if ($coef_count < 2) {
+                $low_coefs[$cpd] = $elems["#"];
+                $factor_pair_cpds[] = $cpd;
+            } else {
+                if ($coef_count == 2) {
+                    $cf = gcf($low_coefs[$factor_pair_cpds[0]], $low_coefs[$factor_pair_cpds[1]]);
+                    if ($cf < 2) {
+                        return;
+                    }
+                    $low_coefs[$factor_pair_cpds[0]] = $low_coefs[$factor_pair_cpds[0]] / $cf;
+                    $low_coefs[$factor_pair_cpds[1]] = $low_coefs[$factor_pair_cpds[1]] / $cf;
+                } 
+                if ($elems["#"] % cf > 0) {
+                       return 1;
+                }
+                $low_coefs[$cpd] = $elems["#"] / $cf;
+            }
+        } 
+        foreach ($this->prods->getCompoundList() as $cpd => $elems) {
+            $coef_count = count($low_coefs);
+            if ($coef_count < 2) {
+                $low_coefs[] = $elems["#"];
+                $factor_pair_cpds[] = $cpd;
+            } else {
+                if ($coef_count == 2) {
+                    $cf = gcf($low_coefs[$factor_pair_cpds[0]], $low_coefs[$factor_pair_cpds[1]]);
+                    if ($cf < 2) {
+                        return;
+                    }
+                    $low_coefs[$factor_pair_cpds[0]] = $low_coefs[$factor_pair_cpds[0]] / $cf;
+                    $low_coefs[$factor_pair_cpds[1]] = $low_coefs[$factor_pair_cpds[1]] / $cf;
+                                    } 
+                if ($elems["#"] % $cf > 0) {
+                    return 1;
+                }
+                $low_coefs[$cpd] = $elems["#"] / $cf;
+            }
+        }
+        
+        if ($cf < 2) {
+            return 1;
+        }
+        
+        $empty = [];
+        foreach ($this->rxnts->getCompoundList() as $cpd=>$elems) {
+            $this->rxnts->changeCoefficient($cpd, $low_coefs[$cpd], $empty);
+        }
+        foreach ($this->prods->getCompoundList() as $cpd=>$elems) {
+            $this->prods->changeCoefficient($cpd, $low_coefs[$cpd], $empty);
+        }
+        $this->applyWorksheetChanges("reactant");
+        $this->applyWorksheetChanges("product");
+        return $cf;
+    }
+
     private function formatCompound($cpd) {
         $val_0 = ord("0");
         $substart = "<sub>";
@@ -968,6 +1024,16 @@ class Equation {
                 $cur_step .= $this->MAX_STEPS.")";
             } 
             array_unshift($this->steps, $cur_step);
+        } else {
+            $reduction_factor = $this->reduceCoefficients();
+            if ($reduction_factor > 1) {
+                $cur_step = "Coefficients reduced by common factor of ";
+                $cur_step .= $reduction_factor.". This means that a better ";
+                $cur_step .= "sum of coefficients could have been used ";
+                $cur_step .= "during the balancing process to get the ";
+                $cur_step .= "lowest possible integer coefficients.";
+                $this->steps[count($this->steps)] = $cur_step;
+            }
         }
     }
     
