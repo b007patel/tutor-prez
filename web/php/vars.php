@@ -12,6 +12,15 @@ if (($pthandle = fopen($ptfile, "r")) !== FALSE) {
     fclose($pthandle);
 }
 
+// compound ratios for a given element on either side of the reaction
+// arrow (= sign)
+abstract class CompoundRatios {
+        const CRunk=0;        // unknown, ignore ratio and add entry
+        const CR1to1=1;        // one cmpd on each side
+        const CR1toX=2;        // one cmpd on one side to many cmpds on other
+        const CRXtoY=3;        // few cmpds on one side to many cmpds on other
+}
+
 // check string for digits (i.e., subscripts). If none found, confirm
 // that remaining string is not an element
 function isCompound($instr) {
