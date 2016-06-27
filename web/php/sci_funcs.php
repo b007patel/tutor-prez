@@ -22,7 +22,7 @@ class EqSide {
         // a letter to the right of the left letters comes before that
         // letter (e.g., OH fits because 'H' comes before 'O'
         $nextcap = 32767;
-        for ($cur_cap = ord("A"); $cur_cap < ord("Z"); $cur_cap++) {
+        for ($cur_cap = ord("A"); $cur_cap <= ord("Z"); $cur_cap++) {
             $posrc = strpos($instr, $cur_cap, 1);
             if ($posrc !== false) {
                 if ($posrc < $nextcap) {
@@ -125,7 +125,7 @@ class EqSide {
                 $atomcnt = "1";
             }
             if (!array_key_exists($cur_elem, $GLOBALS["pt"])) {
-                unset($comps); return false;
+                unset($comps); $comps=NULL; return false;
             }
             $rawcpstr =  substr($rawcpstr, strlen($cur_term));
             $comps[$rawcp][$cur_elem] += ((int)$atomcnt*$sub);
@@ -147,8 +147,7 @@ class EqSide {
                     //find elems in ion, and counts. Multiply counts by subscr
                     if ($this->count_elems($this->comps, $rawcp,
                             $ion_sym, $sub) === false) {
-                        unset($this->comps); $this->comps = NULL;
-                        return;
+                        unset($this->comps); $this->comps = NULL; return;
                     }
                     // remove ion and sub from srchstr
                     $srchstr = str_replace($raw_ion, "", $srchstr);
@@ -158,8 +157,7 @@ class EqSide {
             //find remaining elems and their counts, if any
             if ($this->count_elems($this->comps, $rawcp,
                             $srchstr) === false) {
-                unset($this->comps); $this->comps = NULL;
-                return;
+                unset($this->comps); $this->comps = NULL; return;
             }
             $cur_term = $this->find_capital_term($srchstr);
         }
@@ -290,13 +288,11 @@ class Equation {
         }
         $tmparr = explode("=", trim($instr));
         if (count($tmparr) < 2) return;
-        $rawrxnts = $tmparr[0];
         $this->rxnts = new EqSide($rawrxnts);
-        if ( $this->rxnts == NULL ) return;
+        if ( $this->rxnts->getCompoundList() == NULL ) return;
         if (count($tmparr) > 1) {
-            $rawprods = $tmparr[1];
             $this->prods = new EqSide($rawprods);
-            if ( $this->prods == NULL ) return;
+            if ( $this->prods->getCompoundList() == NULL ) return;
         }
 
         $rxwk = $this->rxnts->getWorksheet();
