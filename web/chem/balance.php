@@ -41,7 +41,7 @@ TMP;
         if (!$too_many_steps) { 
             foreach ($eqn->getSteps() as $bal_step) {
                 echo <<<"TMP"
-- $bal_step<br>
+$bal_step<br>
 
 TMP;
             }

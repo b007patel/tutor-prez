@@ -2,9 +2,9 @@
 include_once "vars.php";
 
 // NYI: 
-// - try to break up code even more. Trimming findElemToBalance() and 
-// updateWorksheet() only reduced 80 lines of code
-// - track down weird behaviour, more than likely a var getting trashed
+// - try to clean up code
+// --- put client-side validation into JS
+// --- when possible make any duplicated code into a shared function
 //   like before. See testcases.txt on computer for details.
 // - add CSS/HTML(JS?) output to prettify output
 
@@ -13,7 +13,7 @@ class EqSide {
     private $cpds_by_elem = [];
     private $wksheet = NULL;
     
-    // Assumed $instr already starts with a capital
+    // JS:Assumed $instr already starts with a capital
     private function find_capital_term($instr) {
         if (strlen($instr) < 1) {
             return "";
@@ -37,6 +37,7 @@ class EqSide {
         return trim(substr($instr, 0, $nextcap), "()");
     }
 
+    //JS:
     private function find_all_pa_ions($instr, $firstlb) {
         $pa_rv = "";
 
@@ -89,7 +90,7 @@ class EqSide {
         return rtrim($pa_rv, "|");
     }
 
-    // scan reaction string, "skim" terms. If OK, add keys to the
+    // JS: scan reaction string, "skim" terms. If OK, add keys to the
     // compounds array
     private function init_comps(&$comps, $instr) {
         $rawcomps = explode("+", $instr);
@@ -114,6 +115,8 @@ class EqSide {
         }
     }
 
+    //JS: in al JS functions, replace "unset-NULL-return false" with an
+    //JS: an apprpriate replacement.
     private function count_elems(&$comps, $rawcp, $rawcpstr, $sub=1) {
         $rawcpstr = ltrim($rawcpstr, "~");
         $cur_term = $this->find_capital_term($rawcpstr);
@@ -134,6 +137,7 @@ class EqSide {
         return true;
     }
 
+    //JS:
     private function get_comps_with_pluses($instr) {
         $this->init_comps($this->comps, $instr);
         foreach (array_keys($this->comps) as $rawcp) {
@@ -223,18 +227,18 @@ class EqSide {
         $this->start_worksheet();
     }
                         
-    public function changeCoefficient($elemorcpd, $coef, &$steps, 
+    public function changeCoefficient($elemorcpd, $coef, &$fulleq, 
             $is_diff=false) {
         if (isCompound($elemorcpd)) {
-            $this->applyCoefficientChange([$elemorcpd], $coef, $steps, 
+            $this->applyCoefficientChange([$elemorcpd], $coef, $fulleq, 
                     $is_diff);
         } else {
             $this->applyCoefficientChange($this->cpds_by_elem[$elemorcpd],
-                    $coef, $steps, $is_diff);
+                    $coef, $fulleq, $is_diff);
         }
     }
 
-    private function applyCoefficientChange($cpds, $coef, &$steps, 
+    private function applyCoefficientChange($cpds, $coef, &$fulleq, 
             $is_diff) {
         $orig_coef = 0;
         foreach ($cpds as $i=>$compound) {
@@ -242,10 +246,12 @@ class EqSide {
                 $orig_coef = $this->comps[$compound]["#"];
             }
             $this->comps[$compound]["#"] = $orig_coef + $coef;
-            $cur_step = "-- new ".$compound." coefficient ";
+            $cur_step = "new ".$compound." coefficient ";
             $cur_step .= "is ".($orig_coef + $coef);
-            if (count($steps) > 0) {
-                $steps[count($steps)] = $cur_step;
+            if ($fulleq !=  NULL) {
+            	$fulleq->incIndent();
+                $fulleq->logStep($cur_step);
+                $fulleq->decIndent();
             }
         }
     }
@@ -262,8 +268,11 @@ class EqSide {
         return $this->cpds_by_elem;
     }
 
+    //JS: $instr will be a JSON representation of the JS array instead
+    //JS: maybe replace get_comps_with_pluses() with a new init_comps(),
+    //JS: or maybe PHP has a sys call to load a JSON string into an array
     function __construct($instr){
-        $this->get_comps_with_pluses($instr);
+    	$this->get_comps_with_pluses($instr);
         if ($this->comps != NULL ) {
             $this->setCompoundsByElem();
             $this->start_worksheet();
@@ -274,20 +283,27 @@ class EqSide {
 
 class Equation {
     private $MAX_STEPS = 200;
-    private $MAX_COEF_LOOPS = 3;
+    private $MAX_COEF_LOOPS = 200;
+    private $MAX_COEF = 50000;
     private $rxnts = NULL;
     private $prods = NULL;
     private $wksheet = NULL;
+    private $indent = 0;
     private $cpds_by_elem = [];
     private $steps = [];
+    private $dbgfile = NULL;
     private $last_bal_elem = "";
     
     function __construct($instr){
         if (strlen(trim($instr)) < 2) {
             return NULL;
         }
+        $this->dbgfile = fopen($_SERVER["DOCUMENT_ROOT"]."/php/dbg_out.txt", 
+        		"w");
         $tmparr = explode("=", trim($instr));
         if (count($tmparr) < 2) return;
+        $rawrxnts = $tmparr[0];
+        $rawprods = $tmparr[1];
         $this->rxnts = new EqSide($rawrxnts);
         if ( $this->rxnts->getCompoundList() == NULL ) return;
         if (count($tmparr) > 1) {
@@ -360,14 +376,54 @@ class Equation {
             }
         }
         // no inequalities found. Equation is balanced
+        $this->indent = 0;
         return true;
     }
     
+    public function incIndent() {
+    	$this->indent++;	
+    }
+    
+	public function decIndent() {
+    	if ($this->indent > 0) {
+    		$this->indent--;
+    	}	
+    }
+    
+    public function logStep($step) {
+    	$init_str = "- ";
+    	$indent_str = "--";
+    	$cur_step = $init_str.$step;
+    	for ($i=0; $i < $this->indent; $i++) {
+    		$cur_step = $indent_str.$cur_step;
+    	}
+    	$this->steps[count($this->steps)] = $cur_step;
+    }
+    
+    private function logHardStep() {
+    	$cur_step = "HARD OR IMPOSSIBLE to balance by inspection. ";
+    	$cur_step .= "Use the algebraic method or half-cell reactions ";
+    	$cur_step .= "instead";
+    	$this->logStep($cur_step);
+    }
+    
+    private function dbgOut($instr, $in_arr="junk") {
+    	if (!is_array($in_arr)) {
+    		echo $instr, "<br>";
+    		fwrite($this->dbgfile, $instr."\n");
+    		return;
+    	}
+    	
+    	$tmparr = explode("%[]", $instr);
+    	$outstr = $tmparr[0];
+    	$outstr .= print_r($in_arr, true);
+    	if (count($tmparr) > 1) $outstr .= $tmparr[1];
+    	echo $outstr, "<br>";
+    	fwrite($this->dbgfile, $outstr."\n");
+    }
+    
     private function getOKElems(&$pe, $OH, $condition) {
-        echo "args ", ($OH)?"OH":"regular", ", ", $condition, "<br>";
-           foreach ($this->cpds_by_elem as $elem => $cpds) {
-            echo "elem ", $elem, ", args ", ($OH)?"OH":"regular", ", ", $condition, "<br>";
-            echo "cpds: "; var_dump($cpds); echo "<br>";
+        foreach ($this->cpds_by_elem as $elem => $cpds) {
             if (!$OH) {
                 if ($elem == "O" || $elem == "H") continue;
             } else {
@@ -376,19 +432,16 @@ class Equation {
             if ($this->wksheet[$elem][0] == $this->wksheet[$elem][1]) {
                 continue;
             }
-            echo "didn't skip in getOKElems still<br>";
             $rxcnt = count($cpds[0]);
             $prcnt = count($cpds[1]);
             switch ($condition) {
                 case CompoundRatios::CR1to1: {
-                    echo "1:1<br>";
                     if ($rxcnt == 1 && $prcnt == 1) {
                         $pe[$elem] = $this->wksheet[$elem];
                     }
                     break;
                 }
                 case CompoundRatios::CR1toX: {
-                    echo "1:X<br>";
                     if (($rxcnt == 1 && $prcnt > 1) ||
                             ($rxcnt > 1 && $prcnt == 1)) {
                         $pe[$elem] = $this->wksheet[$elem];
@@ -396,7 +449,6 @@ class Equation {
                     break;
                 }
                 case CompoundRatios::CRXtoY: {
-                    echo "X:Y<br>";
                     if ($rxcnt > 1) {
                         $pe[$elem] = $this->wksheet[$elem];
                     }
@@ -404,7 +456,6 @@ class Equation {
                 }
                 case CompoundRatios::CRunk:
                 default: {
-                    echo "default<br>";
                     $pe[$elem] = $this->wksheet[$elem];
                     break;
                 }
@@ -423,22 +474,18 @@ class Equation {
   
         // look for one compound having element:more than one compound
         $this->getOKElems($possible_elems, false, CompoundRatios::CR1toX);
-        echo "1st poss elem: "; var_dump($possible_elems); echo "<br>";
         // if needed, look for one compound element on each side
         if (count($possible_elems) < 1) {
             $this->getOKElems($possible_elems, false, CompoundRatios::CR1to1);
-            echo "2nd poss elem: "; var_dump($possible_elems); echo "<br>";
         }
         // if needed, look for few compounds having element:many compounds
         if (count($possible_elems) < 1) {
             $this->getOKElems($possible_elems, false, CompoundRatios::CRXtoY);
-            echo "3rd poss elem: "; var_dump($possible_elems); echo "<br>";
         }
         // now, only equal number (number > 1) of compounds with elements
         // on each side are left. Check for non-O, non-H compounds
         if (count($possible_elems) < 1) {
             $this->getOKElems($possible_elems, false, CompoundRatios::CRunk);
-            echo "4th poss elem: "; var_dump($possible_elems); echo "<br>";
         }
         if (count($possible_elems) > 0) {
             $cur_step = "Consider compounds with element(s) ";
@@ -449,7 +496,7 @@ class Equation {
             $cur_step_elems = substr($cur_step_elems, 0,
                     strlen($cur_step_elems) - 2)." ";
             $cur_step .= $cur_step_elems."for next balancing step.";
-            $this->steps[count($this->steps)] = $cur_step;
+            $this->logStep($cur_step);
         }
         if (count($possible_elems) < 1) {
             // only O and/or H left. Check for O first. If already balanced
@@ -467,32 +514,28 @@ class Equation {
                 // for O/H look for one compound for element on each side first
                 $this->getOKElems($possible_elems, true, 
                         CompoundRatios::CR1to1);
-                echo "OH 1st poss elem: "; var_dump($possible_elems); echo "<br>";
                 // if needed, look for one compound having element:more
                 // than one compound
                 if (count($possible_elems) < 1) {
                     $this->getOKElems($possible_elems, true, 
                             CompoundRatios::CR1toX);
-                    echo "OH 2nd poss elem: "; var_dump($possible_elems); echo "<br>";
                 }
                 // if needed, look for few compounds having element:many 
                 // compounds
                 if (count($possible_elems) < 1) {
                     $this->getOKElems($possible_elems, true, 
                             CompoundRatios::CRXtoY);
-                    echo "OH 3rd poss elem: "; var_dump($possible_elems); echo "<br>";
                 }
                 // now, only equal number (number > 1) of compounds with elements
                 // on each side are left. Check for non-O, non-H compounds
                 if (count($possible_elems) < 1) {
                     $this->getOKElems($possible_elems, true, 
                             CompoundRatios::CRunk);
-                    echo "OH 4th poss elem: "; var_dump($possible_elems); echo "<br>";
                 }
             }
             $cur_step = "Other elements are balanced. Consider compounds ";
             $cur_step .= "with element ".array_keys($possible_elems)[0].".";
-            $this->steps[count($this->steps)] = $cur_step;
+            $this->logStep($cur_step);
         }
             
         $rt_elem = "";
@@ -528,16 +571,11 @@ class Equation {
         foreach ($rxwk as $elem => $cnt) {
             $this->wksheet[$elem] = [$rxwk[$elem], $prwk[$elem]];
         }
-        //$tmpstep = "Update ".$eqside." atom counts in worksheet";
-        //$this->steps[count($this->steps)] = $tmpstep;
     }
 
-    private function findCompoundsOnlyWithElem($cd, $elem) {
+    private function findCompoundsOnlyWithElem($elem) {
         $rv = [];
-        $cur_step = "Find difference in product count and reaction count ";
-        $cur_step .= "of ".$elem.". It is ".$cd;
-        $this->steps[count($this->steps)] = $cur_step;
-        foreach ($this->cpds_by_elem[$elem] as $side=>$cnames) {
+		foreach ($this->cpds_by_elem[$elem] as $side=>$cnames) {
             $rv[$side] = [];
             $curr_side = $this->rxnts->getCompoundList();
             if ($side == 1) {
@@ -565,7 +603,20 @@ class Equation {
 
     private function compareBalancingofWorksheets(&$wks1, &$wks2, $elem) {
         $right_wks_better = false;;
-
+        
+        //dbg
+        /*$step_context = 3;
+        $laststep = count($this->steps) - 1;
+        $firststep = $laststep - $step_context;
+        for ($i=$firststep; $i < $laststep; $i++) {
+        	$this->dbgOut($this->steps[$i]);
+        }
+        // must force pointer to end, or insertions will just
+        // overwrite the existing last element
+        end($this->steps);
+        $this->dumpWS($wks1, "Worksheet 1");
+        $this->dumpWS($wks2, "Worksheet 2");
+        */
         // check to be sure that none of the wks have imbalance of elem
         if ($wks1[$elem][0] != $wks1[$elem][1]) {
             $right_wks_better = true;
@@ -630,22 +681,22 @@ class Equation {
         }
         
         // either worksheets are identical, or there is an indiscernible
-        // difference between them
+        // difference between them. Leave defender as is
         return $right_wks_better;
     }
 
-    private function changeCoefs($ps, $cpd, $codiff, &$steps, $isdiff=false) {
+    private function changeCoefs($ps, $cpds, $codiff, &$fulleq, $isdiff=false) {
         $cpdarr = [];
-        if (!is_array($cpd)) {
-            $cpdarr[$cpd] = $codiff;
+        if (!is_array($cpds)) {
+            $cpdarr[$cpds] = $codiff;
         } else {
-            $cpdarr = $cpd;
+            $cpdarr = $cpds;
         }
         foreach ( $cpdarr as $cpd => $coef ) {
             if ($ps == "reactant") {
-                $this->rxnts->changeCoefficient ( $cpd, $coef, $steps, $isdiff );
+                $this->rxnts->changeCoefficient ( $cpd, $coef, $fulleq, $isdiff );
             } else {
-                $this->prods->changeCoefficient ( $cpd, $coef, $steps, $isdiff );
+                $this->prods->changeCoefficient ( $cpd, $coef, $fulleq, $isdiff );
             }
         }
         unset($cpdarr);
@@ -662,92 +713,124 @@ class Equation {
             }
         }
     }
- 
+
+    private function tryEvenMultiples(&$candidate_cpds, $elem, $cd, $ps_str) {
+    	$cur_step = "Inspect ".$ps_str."s to see if compounds with ";
+    	$cur_step .= $elem." can be adjusted to balance ".$elem;
+    	$this->logStep($cur_step);
+    	$cpds_w_factor_cnts = [];
+    	$elem_cnt = 0;
+    	if (count($candidate_cpds) <= 0) {
+    		$cur_step = "No candidantes found for ".$elem;
+    		$cur_step .= " Leaving tryEvenMultiples.";
+    		$this->logStep($cur_step);
+    		return false;
+    	}
+    	foreach ($candidate_cpds as $cpd=>$elems) {
+    		$cur_count = $elems[$elem];
+    		$elem_cnt += $cur_count;
+    		if ($cd % $cur_count == 0) {
+    			$cpds_w_factor_cnts[$cpd] = $elems;
+    		}
+    	}
+    	if ($elem_cnt > 0) {
+    		$cur_step = "Check if the total ".$elem." count on ".$ps_str." ";
+    		$cur_step .= "side is a >1 factor of ".$count_diff.", the ";
+    		$cur_step .= "difference in ".$elem;
+    		$this->logStep($cur_step, 1);
+    		if ($cd % $elem_cnt == 0) {
+    			$coef_diff = $cd / $elem_cnt;
+    			$cur_step = $cd." is exactly ".$coef_diff." times ";
+    			$cur_step .= "larger than the ".$ps_str." ".$elem." ";
+    			$cur_step .= "count, ".$elem_cnt;
+    			$this->logStep($cur_step);
+    			$cur_step = "Increase coefficients by ".$coef_diff;
+    			$this->logStep($cur_step);
+    			 
+    			foreach ($candidate_cpds as $cpd=>$elems) {
+    				$this->changeCoefs($ps_str, $cpd, $coef_diff, 
+    						$this, true);
+    			}
+    			$this->applyWorksheetChanges($ps_str);
+    			return true;
+    		}
+    	}
+    }
+    
     private function updateWorksheet($elem, $first_balance=false){
-        $empty = [];
+        $empty = NULL;
+        $this->indent = 0;
         // find compound(s) for given element to balance
         $rxcount = $this->wksheet[$elem][0];
         $prcount = $this->wksheet[$elem][1];
         if ($first_balance) {
             $lcm = lcm($rxcount, $prcount);
+            if ($lcm > $this->MAX_COEF) {
+            	$this->logHardStep();
+            	return false;
+            }
             $rxcoef = $lcm / $rxcount;
             $prcoef = $lcm / $prcount;
             if ($rxcoef > 1) {
                 $cur_step = "Try to balance ".$elem."'s by multiplying ";
                 $cur_step .= "reactants' coefficients by ".$rxcoef;
-                $this->steps[count($this->steps)] = $cur_step;
-                $this->rxnts->changeCoefficient($elem, $rxcoef, $this->steps);
+                $this->logStep($cur_step);
+                $this->rxnts->changeCoefficient($elem, $rxcoef, $this);
                 $this->applyWorksheetChanges("reactant");
             }
             if ($prcoef > 1) {
                 $cur_step = "Try to balance ".$elem."'s by multiplying ";
                 $cur_step .= "products' coefficients by ".$prcoef;
-                $this->steps[count($this->steps)] = $cur_step;
-                $this->prods->changeCoefficient($elem, $prcoef, $this->steps);
+                $this->logStep($cur_step);
+                $this->prods->changeCoefficient($elem, $prcoef, $this);
                 $this->applyWorksheetChanges("product");
             }
             return true;
         }
 
         $count_diff = abs($rxcount - $prcount);
+        $cur_step = "Find difference in product count and reaction count ";
+        $cur_step .= "of ".$elem.". It is ".$count_diff;
+        $this->logStep($cur_step);
         $only_elem_cpds =
-            $this->findCompoundsOnlyWithElem($count_diff, $elem);
+            $this->findCompoundsOnlyWithElem($elem);
         $prefside = $only_elem_cpds[1];
         $ps_str = "product";
         if ($prcount > $rxcount) {
             $prefside = $only_elem_cpds[0];
             $ps_str = "reactant";
         }
-        $cur_step = "Inspect ".$ps_str."s to see if compounds with ";
-        $cur_step .= $elem." can be adjusted to balance ".$elem;        
-        $this->steps[count($this->steps)] = $cur_step;
-        $cpds_w_factor_cnts = [];
-        $elem_cnt = 0;
-        foreach ($prefside as $cpd=>$elems) {
-            $cur_count = $elems[$elem];
-            $elem_cnt += $cur_count;
-            if ($count_diff % $cur_count == 0) {
-                $cpds_w_factor_cnts[$cpd] = $elems;
-            }
-        }
-        $cur_step = "Check if the total ".$elem." count on ".$ps_str." side ";
-        $cur_step .= "is a >1 factor of ".$count_diff.", the difference in ";
-        $cur_step .= $elem;
-        $this->steps[count($this->steps)] = $cur_step;
-        if ($elem_cnt > 0 && $count_diff % $elem_cnt == 0) {
-            $coef_diff = $count_diff / $elem_cnt;
-            $cur_step = $count_diff." is exactly ".$coef_diff." times larger ";
-            $cur_step .= "than the ".$ps_str." ".$elem." count, ".$elem_cnt;
-            $this->steps[count($this->steps)] = $cur_step;
-            $cur_step = "Increase coefficients by ".$coef_diff;
-            $this->steps[count($this->steps)] = $cur_step;
-            
-            foreach ($prefside as $cpd=>$elems) {
-                $this->changeCoefs($ps_str, $cpd, $coef_diff, $this->steps, 
-                        true);
-            }
-            $this->applyWorksheetChanges($ps_str);
-            return true;
-        }
+        
+        $cur_step = "Check compounds only with ".$elem;
+        $this->logStep($cur_step);
+        $this->incIndent();
+        if ($this->tryEvenMultiples($prefside, $elem, $count_diff, 
+        		$ps_str)) return true;
         $cur_step = "Total ".$elem." count is not a factor of difference.";
-        $this->steps[count($this->steps)] = $cur_step;
-        if (count($cpds_w_factor_cnts) != 1) {
-            $cur_step = "Balance using one compound with a ".$elem." count ";
-            $cur_step .= "that is a factor of difference";
-            $cpds_to_try = $cpds_w_factor_cnts;
-            if (count($cpds_to_try) < 1) {
-                $this->findCompoundsToTry($cpds_to_try, $elem, $count_diff,
-                        $ps_str);  
-            }
-            // initialize defender-challenger worksheets with largest
-            // imbalance possible
-            $wks1 = $this->wksheet;
-            foreach ($wks1 as $e=>$cnts) {
-                $wks1[$e] = [32767, 0];
-            }
-            $wks2 = $wks1;
-            $cpds_to_change = [];
-            foreach ($cpds_to_try as $cpd=>$elems) {
+        $this->logStep($cur_step);
+        $this->decIndent();
+        // initialize defender-challenger worksheets with largest
+        // imbalance possible
+        $wks1 = $this->wksheet;
+        foreach ($wks1 as $e=>$cnts) {
+            $wks1[$e] = [32767, 0];
+        }
+        $wks2 = $wks1;
+        $cpds_to_change = [];
+        $coef_is_diff = false;
+        if (count($cpds_w_factor_cnts) <= 0) {
+            $this->findCompoundsToTry($cpds_w_factor_cnts, $elem, 
+                    $count_diff, $ps_str);
+            $cur_step = "Check compounds with ".$elem." and one or more ";
+            $cur_step .= "other elememnts";
+            $this->logStep($cur_step);
+            $this->incIndent();
+            $this->tryEvenMultiples($cpds_w_factor_cnts, $elem,
+            		$count_diff, $ps_str);
+            $wks2 = $this->wksheet;
+        }
+        if (count($cpds_w_factor_cnts) > 1) {
+            foreach ($cpds_w_factor_cnts as $cpd=>$elems) {
                 $orig_coef = $elems["#"];
                 $factor_coef = $count_diff + $elems[$elem];
                 if ($count_diff % $elems[$elem] == 0) {
@@ -756,22 +839,24 @@ class Equation {
                 $this->changeCoefs($ps_str, $cpd, $factor_coef, $empty); 
                 $this->applyWorksheetChanges($ps_str);
                 $wks2 = $this->wksheet;
-                //$this->dumpWS($wks1, "Worksheet 1");
-                //$this->dumpWS($wks2, "Worksheet 2");
                 $foundNewBalanced = 
                         $this->compareBalancingofWorksheets($wks1, $wks2, 
                             $elem);
                 if ($foundNewBalanced) {
+                	$cur_step = "Balance using one compound with a ".$elem." count ";
+            		$cur_step .= "that is a factor of difference";
+            		$this->logStep($cur_step);
                     $wks1 = $wks2;
-                    $cpds_to_change[$cpd] = $factor_coef;
+                    $coef_is_diff = false;
+                	$cpds_to_change[$cpd] = $factor_coef;
                 }
                 $this->changeCoefs($ps_str, $cpd, $orig_coef, $empty); 
                 $this->applyWorksheetChanges($ps_str);
             }
             // check possible sums of compounds, but only for case where
             // number of compounds is 2. Higher numbers too complex to check
-            if (count($cpds_to_try) == 2) {
-                foreach ($cpds_to_try as $cpd=>$elems) {
+            if (count($cpds_w_factor_cnts) == 2) {
+                foreach ($cpds_w_factor_cnts as $cpd=>$elems) {
                     $orig_coef = $elems["#"];
                     $ac = $elems[$elem];
                     $cpd_atom_cnts[] = [$cpd, $ac, $orig_coef];
@@ -792,6 +877,10 @@ class Equation {
                     $coef_2++;
                     $coef_1 = ($count_diff - $ac2 * $coef_2)/$ac1;
                 }
+                if (count($coefs_to_try) > $this->MAX_COEF_LOOPS) {
+                	$this->logHardStep();
+                	return false;
+                }
                 foreach ($coefs_to_try as $i=>$coefs) {
                     $this->changeCoefs($ps_str, $cpd1, $coefs[0], $empty, 
                         true);
@@ -799,18 +888,18 @@ class Equation {
                         true);
                     $this->applyWorksheetChanges($ps_str);
                     $wks2 = $this->wksheet;
-                    //$this->dumpWS($wks1, "Worksheet 1");
-                    //$this->dumpWS($wks2, "Worksheet 2");
                     $foundNewBalanced = 
                             $this->compareBalancingofWorksheets($wks1, $wks2, 
                                 $elem);
                     if ($foundNewBalanced) {
                         $wks1 = $wks2;
-                        $cur_step = "Balance by changing coefficients of ";
+                       	$coef_is_diff = true;
+                		$cur_step = "Balance by changing coefficients of ";
                         $cur_step .= $elem." compounds such that their ";
                         $cur_step .= "atom count sum is a factor of ";
                         $cur_step .= "the difference";
-                        unset($cpds_to_change);
+                        $this->logStep($cur_step);
+                    	unset($cpds_to_change);
                         $cpds_to_change[$cpd1] = $coefs[0];
                         $cpds_to_change[$cpd2] = $coefs[1];
                     }
@@ -819,12 +908,10 @@ class Equation {
                     $this->applyWorksheetChanges($ps_str);
                 }
             }
-            $is_diff = count($cpds_to_change) > 1;
-            $this->changeCoefs($ps_str, $cpds_to_change, 0, $this->steps, 
-                    $is_diff);
+            $this->changeCoefs($ps_str, $cpds_to_change, 0, 
+            		$this, $coef_is_diff);
             $this->applyWorksheetChanges($ps_str);
             //$this->dumpWS($this->wksheet, "After wks chosen");
-            $this->steps[count($this->steps)] = $cur_step;
             return true;
         }
         // if there is only one compound that has elem in it
@@ -835,30 +922,31 @@ class Equation {
         if (count($this->cpds_by_elem[$elem][$ps_index]) == 1) {
             $cur_cpd = $this->cpds_by_elem[$elem][$ps_index][0];
             $lcm = lcm($rxcount, $prcount);
+        	if ($lcm > $this->MAX_COEF) {
+            	$this->logHardStep();
+            	return false;
+            }
             $rxcpds = $this->rxnts->getCompoundList();
             $prcpds = $this->prods->getCompoundList();
             if ($ps_str == "reactant") {
                 $rxcoef = $lcm / $rxcpds[$cur_cpd][$elem];
                 $cur_step = "Try to balance ".$elem."'s by multiplying ";
                 $cur_step .= "reactants' coefficients by ".$rxcoef;
-                $this->steps[count($this->steps)] = $cur_step;
-                $this->rxnts->changeCoefficient($elem, $rxcoef, $this->steps);
+                $this->logStep($cur_step);
+                $this->rxnts->changeCoefficient($elem, $rxcoef, $this);
                 $this->applyWorksheetChanges("reactant");
             }
             if ($ps_str == "product") {
                 $prcoef = $lcm / $prcpds[$cur_cpd][$elem];
                 $cur_step = "Try to balance ".$elem."'s by multiplying ";
                 $cur_step .= "products' coefficients by ".$prcoef;
-                $this->steps[count($this->steps)] = $cur_step;
-                $this->prods->changeCoefficient($elem, $prcoef, $this->steps);
+                $this->logStep($cur_step);
+                $this->prods->changeCoefficient($elem, $prcoef, $this);
                 $this->applyWorksheetChanges("product");
             }
-            return true;
+        	return true;
         }
-            
-        $cur_step .= "Use the algebraic method or half-cell reactions ";
-        $cur_step .= "instead";
-        $this->steps[count($this->steps)] = $cur_step;
+        $this->logHardStep();
         return false;
     }
 
@@ -892,9 +980,11 @@ class Equation {
             return $commonf;
         }
 
-        $cf = checkEqSide($this->rxnts->getCompoundList(), $low_coefs, $factor_cpds, $cf);
+        $cf = checkEqSide($this->rxnts->getCompoundList(), $low_coefs, 
+        		$factor_cpds, $cf);
         if ($cf < 2) return 1;
-        $cf = checkEqSide($this->prods->getCompoundList(), $low_coefs, $factor_cpds, $cf);
+        $cf = checkEqSide($this->prods->getCompoundList(), $low_coefs, 
+        		$factor_cpds, $cf);
         if ($cf < 2) return 1;
         
         $empty = [];
@@ -950,8 +1040,10 @@ class Equation {
                     $this->updateWorksheet($cur_elem);
         }
         if (!$balanceable) {
-            if (substr($this->steps[count($this->steps) - 1], 0, 4) == "HARD") {
-                $cur_step = "** HARD OR IMPOSSIBLE TO BALANCE!";
+            $raw_last_step = trim($this->steps[count($this->steps) - 1], "- "); 
+            $last_step_start = substr($raw_last_step, 0, 4);
+            if ($last_step_start == "HARD") {
+                $cur_step = "** ".$raw_last_step;
             } else {
                 $cur_step = "** # of steps exceeds max steps allowed (";
                 $cur_step .= $this->MAX_STEPS.")";
@@ -965,9 +1057,16 @@ class Equation {
                 $cur_step .= "sum of coefficients could have been used ";
                 $cur_step .= "during the balancing process to get the ";
                 $cur_step .= "lowest possible integer coefficients.";
-                $this->steps[count($this->steps)] = $cur_step;
+                $this->logStep($cur_step);
             }
         }
+        // debug - output all steps to debug file
+        fwrite($this->dbgfile, "DEBUG list all steps\n");
+        fwrite($this->dbgfile, "=======".count($this->steps)."=========\n");
+        for ($i=0;$i < count($this->steps); $i++) {
+        	fwrite($this->dbgfile, $this->steps[$i]."\n");
+        }
+        fclose($this->dbgfile);
     }
     
     public function getSteps() {
@@ -1003,18 +1102,22 @@ class Equation {
 
     public function dumpWS(&$ws, $header) {
         echo "<pre>", $header, "\n";
+        fwrite($this->dbgfile, $header."\n");
         echo "Element,R,P\n";    
+        fwrite($this->dbgfile, "Element,R,P\n");    
         foreach ($ws as $elem=>$cnts) {
             echo $elem, ", ", $cnts[0], ", ", $cnts[1], "\n";
+            fwrite($this->dbgfile, $elem.", ".$cnts[0].", ".$cnts[1]."\n");
         }
         echo "</pre>";
+        fwrite($this->dbgfile, "\n+++++++++++++".count($this->steps)."+++++++++++++\n");
     }
 
     public function debug_du_jour() {
         echo "compounds sorted by elements:<br>"; var_dump($this->cpds_by_elem); echo "<hr>";
         foreach ($this->wksheet as $e=>$cnts) {
             echo "findOnly for '", $e, "' returns:<br>";
-            var_dump($this->findCompoundsOnlyWithElem(-1, $e)); echo "<br><hr>";
+            var_dump($this->findCompoundsOnlyWithElem($e)); echo "<br><hr>";
         }
     }
 }
