@@ -721,8 +721,7 @@ class Equation {
     	$cpds_w_factor_cnts = [];
     	$elem_cnt = 0;
     	if (count($candidate_cpds) <= 0) {
-    		$cur_step = "No candidantes found for ".$elem;
-    		$cur_step .= " Leaving tryEvenMultiples.";
+    		$cur_step = "No candidates found for ".$elem;
     		$this->logStep($cur_step);
     		return false;
     	}
@@ -824,10 +823,6 @@ class Equation {
             $cur_step = "Check compounds with ".$elem." and one or more ";
             $cur_step .= "other elememnts";
             $this->logStep($cur_step);
-            $this->incIndent();
-            $this->tryEvenMultiples($cpds_w_factor_cnts, $elem,
-            		$count_diff, $ps_str);
-            $wks2 = $this->wksheet;
         }
         if (count($cpds_w_factor_cnts) > 1) {
             foreach ($cpds_w_factor_cnts as $cpd=>$elems) {
@@ -842,9 +837,10 @@ class Equation {
                 $foundNewBalanced = 
                         $this->compareBalancingofWorksheets($wks1, $wks2, 
                             $elem);
+                $step_st = "Balance";
                 if ($foundNewBalanced) {
-                	$cur_step = "Balance using one compound with a ".$elem." count ";
-            		$cur_step .= "that is a factor of difference";
+                	$cur_step = $step_st." using ".$cpd.", which has a ".$elem;
+            		$cur_step .= " count that is a factor of difference";
             		$this->logStep($cur_step);
                     $wks1 = $wks2;
                     $coef_is_diff = false;
@@ -888,13 +884,17 @@ class Equation {
                         true);
                     $this->applyWorksheetChanges($ps_str);
                     $wks2 = $this->wksheet;
+                    // if there is an existing non-dummy defender, then
+                    // when a new defender is found re-balancing occurs
+                    $step_st = "Balance";
+                    if ($foundNewBalanced) $step_st = "Re-balance";
                     $foundNewBalanced = 
                             $this->compareBalancingofWorksheets($wks1, $wks2, 
                                 $elem);
                     if ($foundNewBalanced) {
                         $wks1 = $wks2;
                        	$coef_is_diff = true;
-                		$cur_step = "Balance by changing coefficients of ";
+                		$cur_step = $step_st." by changing coefficients of ";
                         $cur_step .= $elem." compounds such that their ";
                         $cur_step .= "atom count sum is a factor of ";
                         $cur_step .= "the difference";
