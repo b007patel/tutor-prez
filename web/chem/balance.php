@@ -5,10 +5,10 @@ include "../php/sci_funcs.php";
 echo <<<'EOT'
 <table class='center' style='width: 800px'> 
 <tr><td>
-<form name='balance' action='balance.php' method='post' style='margin-bottom:0;'>
+<form name='balance' id='balance' action='balance.php' method='post' style='margin-bottom:0;'>
 <label><b>Enter a chemical equation to balance:</b><br>
 EOT;
-echo "<input autofocus name='reaction' value='",$_POST["reaction"],"' maxlength='200' style='width: 80%;' placeholder='Enter a chemical equation to balance'></label>\n";
+echo "<input autofocus name='reaction' id='reaction' value='",$_POST["reaction"],"' maxlength='200' style='width: 80%;' placeholder='Enter a chemical equation to balance'></label>\n";
 echo <<<'EOS'
 <input type='submit' value='Balance'>
 </form>
@@ -88,4 +88,10 @@ TMP;
 echo <<<'EOT'
 </td></tr>
 </table>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+<script src="../js/tp_common.js"></script>
+<script src="../js/chem_validate.js"></script>
+<script>
+		var eq = new ChemRxn($("input#reaction").val());
+</script>
 EOT;

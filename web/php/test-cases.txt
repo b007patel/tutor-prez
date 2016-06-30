@@ -18,6 +18,7 @@ K2MnO4 + CO2 = KMnO4 + K2CO3 + MnO2
 Negative assertions:
 +++++++++++++++++++
 - if PHP warnings/errors come up during test case, then it failed 
+jU7Nk3 = jU3 + Nk2 (element starts with lower case letter)
 Yt7 + P17 = P4Yt10 (Yt is not in periodic table)
 K2MnO4 + CO2 (should be invalid because no products given)
 K2MnO4 + CO2 = KMnO4 + K2CO3 + MnO2 = PO (expect last = term to be ignored)

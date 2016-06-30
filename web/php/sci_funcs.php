@@ -140,6 +140,9 @@ class EqSide {
     //JS:
     private function get_comps_with_pluses($instr) {
         $this->init_comps($this->comps, $instr);
+        if ($this->comps == NULL) {
+        	unset($this->comps); $this->comps = NULL; return;
+        }
         foreach (array_keys($this->comps) as $rawcp) {
             $srchstr = $rawcp;
             if (count($this->comps[$rawcp]) > 1) {
