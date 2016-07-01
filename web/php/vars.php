@@ -9,29 +9,6 @@ abstract class CompoundRatios {
         const CRXtoY=3;        // few cmpds on one side to many cmpds on other
 }
 
-// check string for digits (i.e., subscripts). If none found, confirm
-// that remaining string is not an element
-function isCompound($instr) {
-    $i = -1;
-    $len = strlen($instr);
-    $zero = ord("0");
-    $nine = ord("9");
-    $is_an_elem = true;
-
-    while ($i < $len && $is_an_elem) {
-        $i++;
-        $curr_code = ord($instr[$i]);
-        $is_an_elem = ($curr_code < $zero || $curr_code > $nine);
-    }
-    if ($is_an_elem) {
-       $is_an_elem = strlen($instr) <= 2;
-        if ($is_an_elem) {
-            $is_an_elem = array_key_exists($instr, $GLOBALS["pt"]);
-        }
-    }
-    return !$is_an_elem;
-}
-
 function prime_factor($num) {
     $primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29];
     $numprimes = count($primes);

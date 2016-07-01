@@ -12,6 +12,29 @@ class EqSide {
     private $cpds_by_elem = [];
     private $wksheet = NULL;
     
+	// check string for digits (i.e., subscripts). If none found, confirm
+	// that remaining string is not an element
+	public static function isCompound($instr) {
+		$i = -1;
+		$len = strlen($instr);
+		$zero = ord("0");
+		$nine = ord("9");
+		$is_an_elem = true;
+	
+		while ($i < $len && $is_an_elem) {
+			$i++;
+			$curr_code = ord($instr[$i]);
+			$is_an_elem = ($curr_code < $zero || $curr_code > $nine);
+		}
+		if ($is_an_elem) {
+			$is_an_elem = strlen($instr) <= 2;
+			//if ($is_an_elem) {
+			//	$is_an_elem = array_key_exists($instr, $GLOBALS["pt"]);
+			//}
+		}
+		return !$is_an_elem;
+	}
+	
     private function start_worksheet(){
         $coef = 1;
         foreach ($this->comps as $cp => $elems) {
@@ -64,7 +87,7 @@ class EqSide {
                         
     public function changeCoefficient($elemorcpd, $coef, &$fulleq, 
             $is_diff=false) {
-        if (isCompound($elemorcpd)) {
+        if (EqSide::isCompound($elemorcpd)) {
             $this->applyCoefficientChange([$elemorcpd], $coef, $fulleq, 
                     $is_diff);
         } else {
