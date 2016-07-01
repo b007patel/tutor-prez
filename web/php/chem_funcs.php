@@ -3,7 +3,6 @@ include_once "vars.php";
 
 // NYI: 
 // - try to clean up code
-// --- put client-side validation into JS
 // --- when possible make any duplicated code into a shared function
 //   like before. See testcases.txt on computer for details.
 // - add CSS/HTML(JS?) output to prettify output
@@ -13,173 +12,6 @@ class EqSide {
     private $cpds_by_elem = [];
     private $wksheet = NULL;
     
-    // JS:Assumed $instr already starts with a capital
-    private function find_capital_term($instr) {
-        if (strlen($instr) < 1) {
-            return "";
-        }
-        // must check entire alphabet in case a polyatomic ion has
-        // a letter to the right of the left letters comes before that
-        // letter (e.g., OH fits because 'H' comes before 'O'
-        $nextcap = 32767;
-        for ($cur_cap = ord("A"); $cur_cap <= ord("Z"); $cur_cap++) {
-            $posrc = strpos($instr, $cur_cap, 1);
-            if ($posrc !== false) {
-                if ($posrc < $nextcap) {
-                    $nextcap = $posrc;
-                }
-            }
-        }            
-        $termend = $nextcap;
-        if ($nextcap < 1) {
-            return $instr;
-        }
-        return trim(substr($instr, 0, $nextcap), "()");
-    }
-
-    //JS:
-    private function find_all_pa_ions($instr, $firstlb) {
-        $pa_rv = "";
-
-        $lblist[0] = $firstlb;
-        $cur_lbpos = $firstlb + 1;
-        $nextlb = 1;
-        while (($lbpos = strpos($instr, "(", $cur_lbpos)) !== false) {
-            $lblist[$nextlb] = $lbpos;
-            $cur_lbpos = $lbpos + 2;
-            $nextlb++; 
-        }
-        if (($rbpos = strpos($instr, ")")) === false) {
-            return "";
-        }
-        $rblist[0] = $rbpos;
-        $cur_rbpos = $rbpos + 1;
-        $nextrb = 1;
-        while (($rbpos = strpos($instr, ")", $cur_rbpos)) !== false) {
-            $rblist[$nextrb] = $rbpos;
-            $cur_rbpos = $rbpos + 1;
-            $nextrb++; 
-        }
-        if (count($lblist) != count($rblist)) {
-            return "";
-        }
-        $val_0 = ord("0");
-        for ($i = 0; $i < count($lblist); $i++) {
-            if (($rblist[$i] - $lblist[$i]) < 3) {
-                return "";
-            }
-            $cur_digpos = $rblist[$i] + 1;
-            $cur_dig = ord($instr[$cur_digpos]) - $val_0;
-            if ($cur_dig < 0 || $cur_dig > 9) {
-                return "";
-            }
-            $instrlen = strlen($instr);
-            $cur_digpos++;
-            while ($cur_digpos < $instrlen && 
-                    ($cur_dig < 0 || $cur_dig > 9)) {
-                $cur_dig = ord($instr[$cur_digpos]) - $val_0;
-                $cur_digpos++;
-            }
-            $subscriptstr = substr($instr, $rblist[$i] + 1,
-                    $cur_digpos - $rblist[$i]); 
-            $ion_str = "~";
-            $ion_str .= substr($instr, $lblist[$i] + 1,
-                    $rblist[$i] - $lblist[$i]);
-            $pa_rv .= $ion_str."=".$subscriptstr."|";
-        }
-        return rtrim($pa_rv, "|");
-    }
-
-    // JS: scan reaction string, "skim" terms. If OK, add keys to the
-    // compounds array
-    private function init_comps(&$comps, $instr) {
-        $rawcomps = explode("+", $instr);
-        foreach ($rawcomps as $rawcp) {
-            $rawcp = trim(ltrim($rawcp, "0..9"));
-            if (ctype_lower($rawcp[0])) {
-                unset($comps); $comps = NULL; return;
-            }
-            // start off with 1 of each compound (i.e., coefficient=1)
-            $comps[$rawcp]["#"] = 1;
-            if (($lbpos = strpos($rawcp, "(")) !== false) {
-                $pa_str = $this->find_all_pa_ions($rawcp, $lbpos);
-                if (strlen($pa_str) < 2) {
-                    unset($comps); $comps = NULL; return;
-                }
-                $pa_list = explode("|", $pa_str);
-                foreach ($pa_list as $cur_ion) {
-                    $ion_info = explode("=", $cur_ion);
-                    $comps[$rawcp][$ion_info[0]] = (int)$ion_info[1];
-                }
-            }
-        }
-    }
-
-    //JS: in al JS functions, replace "unset-NULL-return false" with an
-    //JS: an apprpriate replacement.
-    private function count_elems(&$comps, $rawcp, $rawcpstr, $sub=1) {
-        $rawcpstr = ltrim($rawcpstr, "~");
-        $cur_term = $this->find_capital_term($rawcpstr);
-        while (strlen($cur_term) > 0) {
-            $cur_elem = $cur_term;
-            if (($atomcnt = strpbrk($cur_term, "123456789")) !== false) {
-                $cur_elem = rtrim($cur_term, "0..9");
-            } else {
-                $atomcnt = "1";
-            }
-            if (!array_key_exists($cur_elem, $GLOBALS["pt"])) {
-                unset($comps); $comps=NULL; return false;
-            }
-            $rawcpstr =  substr($rawcpstr, strlen($cur_term));
-            $comps[$rawcp][$cur_elem] += ((int)$atomcnt*$sub);
-            $cur_term = $this->find_capital_term($rawcpstr);
-        }
-        return true;
-    }
-
-    //JS:
-    private function get_comps_with_pluses($instr) {
-        $this->init_comps($this->comps, $instr);
-        if ($this->comps == NULL) {
-        	unset($this->comps); $this->comps = NULL; return;
-        }
-        foreach (array_keys($this->comps) as $rawcp) {
-            $srchstr = $rawcp;
-            if (count($this->comps[$rawcp]) > 1) {
-                foreach ($this->comps[$rawcp] as $ion_sym => $sub) {
-                    if ($ion_sym == "#") {
-                        continue;
-                    }
-                    $raw_ion = "(".substr($ion_sym, 1).")".$sub;
-                    //find elems in ion, and counts. Multiply counts by subscr
-                    if ($this->count_elems($this->comps, $rawcp,
-                            $ion_sym, $sub) === false) {
-                        unset($this->comps); $this->comps = NULL; return;
-                    }
-                    // remove ion and sub from srchstr
-                    $srchstr = str_replace($raw_ion, "", $srchstr);
-                    unset($this->comps[$rawcp][$ion_sym]);
-                }
-            }
-            //find remaining elems and their counts, if any
-            if ($this->count_elems($this->comps, $rawcp,
-                            $srchstr) === false) {
-                unset($this->comps); $this->comps = NULL; return;
-            }
-            $cur_term = $this->find_capital_term($srchstr);
-        }
-        $complist = array_keys($this->comps); 
-        if (count($complist) > 0 && strlen($complist[0]) > 0) {
-            foreach ($complist as $cp) {
-                // cannot sort on $comps because those are just copies of the
-                // nested arrays. Access original elements by key instead.
-                ksort($this->comps[$cp]);
-            }
-        } else {
-            unset($this->comps); $this->comps = NULL;
-        }
-    }
-
     private function start_worksheet(){
         $coef = 1;
         foreach ($this->comps as $cp => $elems) {
@@ -252,7 +84,7 @@ class EqSide {
             $cur_step = "new ".$compound." coefficient ";
             $cur_step .= "is ".($orig_coef + $coef);
             if ($fulleq !=  NULL) {
-            	$fulleq->incIndent();
+                $fulleq->incIndent();
                 $fulleq->logStep($cur_step);
                 $fulleq->decIndent();
             }
@@ -271,17 +103,18 @@ class EqSide {
         return $this->cpds_by_elem;
     }
 
-    //JS: $instr will be a JSON representation of the JS array instead
-    //JS: maybe replace get_comps_with_pluses() with a new init_comps(),
-    //JS: or maybe PHP has a sys call to load a JSON string into an array
-    function __construct($instr){
-    	$this->get_comps_with_pluses($instr);
-        if ($this->comps != NULL ) {
-            $this->setCompoundsByElem();
-            $this->start_worksheet();
+    function __construct($rawside){
+        foreach ($rawside as $cpd=>$objs) {
+            $this->comps[$cpd] = [];
+            foreach ($objs as $i=>$eobj) {
+                foreach ($eobj as $elem=>$cnt) {
+                    $this->comps[$cpd][$elem] = $cnt;
+                }
+            }
         }
-    }
-    
+        $this->setCompoundsByElem();
+        $this->start_worksheet();
+    }    
 }
 
 class Equation {
@@ -295,25 +128,27 @@ class Equation {
     private $cpds_by_elem = [];
     private $steps = [];
     private $dbgfile = NULL;
+    private $formattedRxn = "";
     private $last_bal_elem = "";
     
     function __construct($instr){
-        if (strlen(trim($instr)) < 2) {
-            return NULL;
-        }
         $this->dbgfile = fopen($_SERVER["DOCUMENT_ROOT"]."/php/dbg_out.txt", 
-        		"w");
-        $tmparr = explode("=", trim($instr));
-        if (count($tmparr) < 2) return;
-        $rawrxnts = $tmparr[0];
-        $rawprods = $tmparr[1];
+                "w");
+        $pos_of_bad = strpos($instr, "--BAD--"); 
+        if ($pos_of_bad >= 0) {
+            $this->formattedRxn = ltrim(substr($instr, $pos_of_bad));
+            $this->formattedRxn = rtrim($this->formattedRxn, "}]");
+        }
+        $eqjson = json_decode($instr);
+        $rawrxnts = $eqjson->rxnts;
+        if ($rawrxnts == NULL || $rawrxnts === undefined) return;
         $this->rxnts = new EqSide($rawrxnts);
         if ( $this->rxnts->getCompoundList() == NULL ) return;
-        if (count($tmparr) > 1) {
-            $this->prods = new EqSide($rawprods);
-            if ( $this->prods->getCompoundList() == NULL ) return;
-        }
-
+        $rawprods = $eqjson->prods;
+        if ($rawprods == NULL || $rawprods === undefined) return;
+        $this->prods = new EqSide($rawprods);
+        if ( $this->prods->getCompoundList() == NULL ) return;
+        
         $rxwk = $this->rxnts->getWorksheet();
         $prwk = $this->prods->getWorksheet();
         
@@ -384,45 +219,45 @@ class Equation {
     }
     
     public function incIndent() {
-    	$this->indent++;	
+        $this->indent++;    
     }
     
-	public function decIndent() {
-    	if ($this->indent > 0) {
-    		$this->indent--;
-    	}	
+    public function decIndent() {
+        if ($this->indent > 0) {
+            $this->indent--;
+        }    
     }
     
     public function logStep($step) {
-    	$init_str = "- ";
-    	$indent_str = "--";
-    	$cur_step = $init_str.$step;
-    	for ($i=0; $i < $this->indent; $i++) {
-    		$cur_step = $indent_str.$cur_step;
-    	}
-    	$this->steps[count($this->steps)] = $cur_step;
+        $init_str = "- ";
+        $indent_str = "--";
+        $cur_step = $init_str.$step;
+        for ($i=0; $i < $this->indent; $i++) {
+            $cur_step = $indent_str.$cur_step;
+        }
+        $this->steps[count($this->steps)] = $cur_step;
     }
     
     private function logHardStep() {
-    	$cur_step = "HARD OR IMPOSSIBLE to balance by inspection. ";
-    	$cur_step .= "Use the algebraic method or half-cell reactions ";
-    	$cur_step .= "instead";
-    	$this->logStep($cur_step);
+        $cur_step = "HARD OR IMPOSSIBLE to balance by inspection. ";
+        $cur_step .= "Use the algebraic method or half-cell reactions ";
+        $cur_step .= "instead";
+        $this->logStep($cur_step);
     }
     
     private function dbgOut($instr, $in_arr="junk") {
-    	if (!is_array($in_arr)) {
-    		echo $instr, "<br>";
-    		fwrite($this->dbgfile, $instr."\n");
-    		return;
-    	}
-    	
-    	$tmparr = explode("%[]", $instr);
-    	$outstr = $tmparr[0];
-    	$outstr .= print_r($in_arr, true);
-    	if (count($tmparr) > 1) $outstr .= $tmparr[1];
-    	echo $outstr, "<br>";
-    	fwrite($this->dbgfile, $outstr."\n");
+        if (!is_array($in_arr)) {
+            echo $instr, "<br>";
+            fwrite($this->dbgfile, $instr."\n");
+            return;
+        }
+        
+        $tmparr = explode("%[]", $instr);
+        $outstr = $tmparr[0];
+        $outstr .= print_r($in_arr, true);
+        if (count($tmparr) > 1) $outstr .= $tmparr[1];
+        echo $outstr, "<br>";
+        fwrite($this->dbgfile, $outstr."\n");
     }
     
     private function getOKElems(&$pe, $OH, $condition) {
@@ -578,7 +413,7 @@ class Equation {
 
     private function findCompoundsOnlyWithElem($elem) {
         $rv = [];
-		foreach ($this->cpds_by_elem[$elem] as $side=>$cnames) {
+        foreach ($this->cpds_by_elem[$elem] as $side=>$cnames) {
             $rv[$side] = [];
             $curr_side = $this->rxnts->getCompoundList();
             if ($side == 1) {
@@ -612,7 +447,7 @@ class Equation {
         $laststep = count($this->steps) - 1;
         $firststep = $laststep - $step_context;
         for ($i=$firststep; $i < $laststep; $i++) {
-        	$this->dbgOut($this->steps[$i]);
+            $this->dbgOut($this->steps[$i]);
         }
         // must force pointer to end, or insertions will just
         // overwrite the existing last element
@@ -718,45 +553,45 @@ class Equation {
     }
 
     private function tryEvenMultiples(&$candidate_cpds, $elem, $cd, $ps_str) {
-    	$cur_step = "Inspect ".$ps_str."s to see if compounds with ";
-    	$cur_step .= $elem." can be adjusted to balance ".$elem;
-    	$this->logStep($cur_step);
-    	$cpds_w_factor_cnts = [];
-    	$elem_cnt = 0;
-    	if (count($candidate_cpds) <= 0) {
-    		$cur_step = "No candidates found for ".$elem;
-    		$this->logStep($cur_step);
-    		return false;
-    	}
-    	foreach ($candidate_cpds as $cpd=>$elems) {
-    		$cur_count = $elems[$elem];
-    		$elem_cnt += $cur_count;
-    		if ($cd % $cur_count == 0) {
-    			$cpds_w_factor_cnts[$cpd] = $elems;
-    		}
-    	}
-    	if ($elem_cnt > 0) {
-    		$cur_step = "Check if the total ".$elem." count on ".$ps_str." ";
-    		$cur_step .= "side is a >1 factor of ".$count_diff.", the ";
-    		$cur_step .= "difference in ".$elem;
-    		$this->logStep($cur_step, 1);
-    		if ($cd % $elem_cnt == 0) {
-    			$coef_diff = $cd / $elem_cnt;
-    			$cur_step = $cd." is exactly ".$coef_diff." times ";
-    			$cur_step .= "larger than the ".$ps_str." ".$elem." ";
-    			$cur_step .= "count, ".$elem_cnt;
-    			$this->logStep($cur_step);
-    			$cur_step = "Increase coefficients by ".$coef_diff;
-    			$this->logStep($cur_step);
-    			 
-    			foreach ($candidate_cpds as $cpd=>$elems) {
-    				$this->changeCoefs($ps_str, $cpd, $coef_diff, 
-    						$this, true);
-    			}
-    			$this->applyWorksheetChanges($ps_str);
-    			return true;
-    		}
-    	}
+        $cur_step = "Inspect ".$ps_str."s to see if compounds with ";
+        $cur_step .= $elem." can be adjusted to balance ".$elem;
+        $this->logStep($cur_step);
+        $cpds_w_factor_cnts = [];
+        $elem_cnt = 0;
+        if (count($candidate_cpds) <= 0) {
+            $cur_step = "No candidates found for ".$elem;
+            $this->logStep($cur_step);
+            return false;
+        }
+        foreach ($candidate_cpds as $cpd=>$elems) {
+            $cur_count = $elems[$elem];
+            $elem_cnt += $cur_count;
+            if ($cd % $cur_count == 0) {
+                $cpds_w_factor_cnts[$cpd] = $elems;
+            }
+        }
+        if ($elem_cnt > 0) {
+            $cur_step = "Check if the total ".$elem." count on ".$ps_str." ";
+            $cur_step .= "side is a >1 factor of ".$count_diff.", the ";
+            $cur_step .= "difference in ".$elem;
+            $this->logStep($cur_step, 1);
+            if ($cd % $elem_cnt == 0) {
+                $coef_diff = $cd / $elem_cnt;
+                $cur_step = $cd." is exactly ".$coef_diff." times ";
+                $cur_step .= "larger than the ".$ps_str." ".$elem." ";
+                $cur_step .= "count, ".$elem_cnt;
+                $this->logStep($cur_step);
+                $cur_step = "Increase coefficients by ".$coef_diff;
+                $this->logStep($cur_step);
+                 
+                foreach ($candidate_cpds as $cpd=>$elems) {
+                    $this->changeCoefs($ps_str, $cpd, $coef_diff, 
+                            $this, true);
+                }
+                $this->applyWorksheetChanges($ps_str);
+                return true;
+            }
+        }
     }
     
     private function updateWorksheet($elem, $first_balance=false){
@@ -768,8 +603,8 @@ class Equation {
         if ($first_balance) {
             $lcm = lcm($rxcount, $prcount);
             if ($lcm > $this->MAX_COEF) {
-            	$this->logHardStep();
-            	return false;
+                $this->logHardStep();
+                return false;
             }
             $rxcoef = $lcm / $rxcount;
             $prcoef = $lcm / $prcount;
@@ -807,7 +642,7 @@ class Equation {
         $this->logStep($cur_step);
         $this->incIndent();
         if ($this->tryEvenMultiples($prefside, $elem, $count_diff, 
-        		$ps_str)) return true;
+                $ps_str)) return true;
         $cur_step = "Total ".$elem." count is not a factor of difference.";
         $this->logStep($cur_step);
         $this->decIndent();
@@ -842,12 +677,12 @@ class Equation {
                             $elem);
                 $step_st = "Balance";
                 if ($foundNewBalanced) {
-                	$cur_step = $step_st." using ".$cpd.", which has a ".$elem;
-            		$cur_step .= " count that is a factor of difference";
-            		$this->logStep($cur_step);
+                    $cur_step = $step_st." using ".$cpd.", which has a ".$elem;
+                    $cur_step .= " count that is a factor of difference";
+                    $this->logStep($cur_step);
                     $wks1 = $wks2;
                     $coef_is_diff = false;
-                	$cpds_to_change[$cpd] = $factor_coef;
+                    $cpds_to_change[$cpd] = $factor_coef;
                 }
                 $this->changeCoefs($ps_str, $cpd, $orig_coef, $empty); 
                 $this->applyWorksheetChanges($ps_str);
@@ -877,8 +712,8 @@ class Equation {
                     $coef_1 = ($count_diff - $ac2 * $coef_2)/$ac1;
                 }
                 if (count($coefs_to_try) > $this->MAX_COEF_LOOPS) {
-                	$this->logHardStep();
-                	return false;
+                    $this->logHardStep();
+                    return false;
                 }
                 foreach ($coefs_to_try as $i=>$coefs) {
                     $this->changeCoefs($ps_str, $cpd1, $coefs[0], $empty, 
@@ -896,13 +731,13 @@ class Equation {
                                 $elem);
                     if ($foundNewBalanced) {
                         $wks1 = $wks2;
-                       	$coef_is_diff = true;
-                		$cur_step = $step_st." by changing coefficients of ";
+                           $coef_is_diff = true;
+                        $cur_step = $step_st." by changing coefficients of ";
                         $cur_step .= $elem." compounds such that their ";
                         $cur_step .= "atom count sum is a factor of ";
                         $cur_step .= "the difference";
                         $this->logStep($cur_step);
-                    	unset($cpds_to_change);
+                        unset($cpds_to_change);
                         $cpds_to_change[$cpd1] = $coefs[0];
                         $cpds_to_change[$cpd2] = $coefs[1];
                     }
@@ -912,7 +747,7 @@ class Equation {
                 }
             }
             $this->changeCoefs($ps_str, $cpds_to_change, 0, 
-            		$this, $coef_is_diff);
+                    $this, $coef_is_diff);
             $this->applyWorksheetChanges($ps_str);
             //$this->dumpWS($this->wksheet, "After wks chosen");
             return true;
@@ -925,9 +760,9 @@ class Equation {
         if (count($this->cpds_by_elem[$elem][$ps_index]) == 1) {
             $cur_cpd = $this->cpds_by_elem[$elem][$ps_index][0];
             $lcm = lcm($rxcount, $prcount);
-        	if ($lcm > $this->MAX_COEF) {
-            	$this->logHardStep();
-            	return false;
+            if ($lcm > $this->MAX_COEF) {
+                $this->logHardStep();
+                return false;
             }
             $rxcpds = $this->rxnts->getCompoundList();
             $prcpds = $this->prods->getCompoundList();
@@ -947,7 +782,7 @@ class Equation {
                 $this->prods->changeCoefficient($elem, $prcoef, $this);
                 $this->applyWorksheetChanges("product");
             }
-        	return true;
+            return true;
         }
         $this->logHardStep();
         return false;
@@ -984,10 +819,10 @@ class Equation {
         }
 
         $cf = checkEqSide($this->rxnts->getCompoundList(), $low_coefs, 
-        		$factor_cpds, $cf);
+                $factor_cpds, $cf);
         if ($cf < 2) return 1;
         $cf = checkEqSide($this->prods->getCompoundList(), $low_coefs, 
-        		$factor_cpds, $cf);
+                $factor_cpds, $cf);
         if ($cf < 2) return 1;
         
         $empty = [];
@@ -1067,7 +902,7 @@ class Equation {
         fwrite($this->dbgfile, "DEBUG list all steps\n");
         fwrite($this->dbgfile, "=======".count($this->steps)."=========\n");
         for ($i=0;$i < count($this->steps); $i++) {
-        	fwrite($this->dbgfile, $this->steps[$i]."\n");
+            fwrite($this->dbgfile, $this->steps[$i]."\n");
         }
         fclose($this->dbgfile);
     }
@@ -1078,11 +913,45 @@ class Equation {
 
     public function showReaction($header) {
         echo "\n", $header, ":<br>\n";
-        $outstr = "<font size=5>";
+        $this->formatReaction();
+        echo $this->formattedRxn;
+    }
+    
+    private function formatInvalidReaction($fontsize, $f_end) {
+        $this->formattedRxn = substr($this->formattedRxn, 7);
+        $this->formattedRxn = $fontsize.$this->formattedRxn.$f_end;
+        $haveNum = false;
+        $fmtstr = $fontsize;
+        for ($i=strlen($fontsize);
+        $i < strlen($this->formattedRxn); $i++) {
+            $curnum = ord($this->formattedRxn[$i]) - ord("0");
+            if ($curnum >= 0 && $curnum <= 9) {
+                if (!$haveNum) {
+                    $haveNum = true;
+                    $fmtstr .= "<sub>";
+                }
+            } else if ($haveNum) {
+                $fmtstr .= "</sub>";
+                $haveNum = false;
+            }
+            $fmtstr .= $this->formattedRxn[$i];
+        }
+        $this->formattedRxn = $fmtstr;
+    }
+    
+    private function formatReaction() {
+        $fontsize = "<font size=5>";
+        $f_end = "</font>";
+        $badstr = substr($this->formattedRxn, 0, 7);
+        if ( $badstr == "--BAD--") {
+            $this->formatInvalidReaction($fontsize, $f_end);
+            return;
+        }
+        $outstr = $fontsize;
         foreach ($this->rxnts->getCompoundList() as $cpd=>$elems) {
             $cpdstr = "";
             if ($elems["#"] > 1) {
-                $cpdstr .= $elems["#"];
+                   $cpdstr .= $elems["#"];
             }
             $cpdstr .= $this->formatCompound($cpd)." + ";
             $outstr .= $cpdstr;
@@ -1090,17 +959,17 @@ class Equation {
         $outstr = rtrim($outstr, " +");
         $outstr .= " ==> ";
         foreach ($this->prods->getCompoundList() as $cpd=>$elems) {
-            $cpdstr = "";
-            if ($elems["#"] > 1) {
-                $cpdstr .= $elems["#"];
-            }
-            $cpdstr .= $this->formatCompound($cpd)." + ";
-            $outstr .= $cpdstr;
+                  $cpdstr = "";
+                  if ($elems["#"] > 1) {
+                      $cpdstr .= $elems["#"];
+                  }
+               $cpdstr .= $this->formatCompound($cpd)." + ";
+                 $outstr .= $cpdstr;
         }
         $outstr = rtrim($outstr, " +");
-        $outstr .= "</font>\n";
+        $outstr .= $f_end."\n";
         
-        echo $outstr; 
+        $this->formattedRxn = $outstr;
     }
 
     public function dumpWS(&$ws, $header) {
@@ -1122,5 +991,38 @@ class Equation {
             echo "findOnly for '", $e, "' returns:<br>";
             var_dump($this->findCompoundsOnlyWithElem($e)); echo "<br><hr>";
         }
+    }
+}
+
+class EqFactory {
+    private static $eqfactory;
+    private static $created = false;
+    private $eqn;
+    
+    private function __construct() {
+        $created = true;
+    }
+    
+    public function newEquation() {
+        $rawEqJSON = file_get_contents("php://input");
+        if (strlen($rawEqJSON) < 2) {
+            return null;
+        }
+        $eqJSON = stripslashes($rawEqJSON);
+        $eqJSON = substr($eqJSON, 0, strlen($eqJSON) - 5)."}]}}";
+        $eqJSON = str_replace('""', '"', $eqJSON);
+        $eqJSON = str_replace('"[', '[', $eqJSON);
+        $eqJSON = str_replace(']"', ']', $eqJSON);
+        $eqJSON = str_replace('"{', '{', $eqJSON);
+        $eqJSON = str_replace('}"', '}', $eqJSON);
+        
+        $this->eqn = new Equation($eqJSON);
+        
+        return $this->eqn;
+    }
+    
+    public static function getInstance() {
+        if (!$created) $eqfactory = new EqFactory();
+        return $eqfactory;
     }
 }

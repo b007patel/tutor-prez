@@ -1,52 +1,52 @@
 function nonWSTrimLeft(instr, trimchars) {
-	let rv = instr;
-	let pos = 0;
-	let tcfound = trimchars.indexOf(instr[pos]) >= 0;
-	while (pos < instr.length && tcfound) {
-		pos++;
-		tcfound = trimchars.indexOf(instr[pos]) >= 0;	
-	};
-	if (tcfound) {
-		rv  = "";
-	} else {
-		rv = instr.substr(pos);
-	};
-	
-	return rv;	
+    let rv = instr;
+    let pos = 0;
+    let tcfound = trimchars.indexOf(instr[pos]) >= 0;
+    while (pos < instr.length && tcfound) {
+        pos++;
+        tcfound = trimchars.indexOf(instr[pos]) >= 0;    
+    };
+    if (tcfound) {
+        rv  = "";
+    } else {
+        rv = instr.substr(pos);
+    };
+    
+    return rv;    
 }
-	
+    
 function nonWSTrimRight(instr, trimchars) {
-	let rv = instr;
-	let pos = instr.length - 1;
-	let tcfound = trimchars.indexOf(instr[pos]) >= 0;
-	while (pos > -1 && tcfound) {
-		pos--;
-		tcfound = trimchars.indexOf(instr[pos]) >= 0;	
-	};
-	if (tcfound) {
-		rv  = "";
-	} else {
-		rv = instr.substr(0, pos + 1);
-	};
-	
-	return rv;	
+    let rv = instr;
+    let pos = instr.length - 1;
+    let tcfound = trimchars.indexOf(instr[pos]) >= 0;
+    while (pos > -1 && tcfound) {
+        pos--;
+        tcfound = trimchars.indexOf(instr[pos]) >= 0;    
+    };
+    if (tcfound) {
+        rv  = "";
+    } else {
+        rv = instr.substr(0, pos + 1);
+    };
+    
+    return rv;    
 }
-	
+    
 function nonWSTrim(instr, trimchars) {
-	let rv = nonWSTrimLeft(instr, trimchars);
-	rv = nonWSTrimRight(rv, trimchars);
-	return rv;
+    let rv = nonWSTrimLeft(instr, trimchars);
+    rv = nonWSTrimRight(rv, trimchars);
+    return rv;
 }
 
 // This function is needed because JS dynamically updates the iterator for
 // a loop. Therefore, the initial state of an iterator, which is the assumed
 // state, is not so
 function copyMap(inmap) {
-	let rv = new Map();
-	for (var k of inmap.keys()){
-		rv.set(k, inmap.get(k));
-	};
-	return rv;
+    let rv = new Map();
+    for (var k of inmap.keys()){
+        rv.set(k, inmap.get(k));
+    };
+    return rv;
 };
 
 var PT = new Map();

@@ -1,17 +1,5 @@
 <?php
 
-$ptfile = $_SERVER["DOCUMENT_ROOT"]."/php/chem-elem-by-symbol.csv";
-if (($pthandle = fopen($ptfile, "r")) !== FALSE) {
-    $done = 0;
-    while (($cur_row = fgetcsv($pthandle, 80)) !== FALSE && !$done) {
-        $done = $cur_row[0] == "??";
-        if (!$done) {
-            $GLOBALS["pt"][$cur_row[0]] = [$cur_row[1], (int)$cur_row[2]];
-        }
-    }
-    fclose($pthandle);
-}
-
 // compound ratios for a given element on either side of the reaction
 // arrow (= sign)
 abstract class CompoundRatios {

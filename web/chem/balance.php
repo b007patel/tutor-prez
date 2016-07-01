@@ -1,35 +1,40 @@
 <?php
+//TODO:
+// - add client side error messages specific to errors (e.g., unknown 
+// element, mismatched elements, no products) 
+// - fix Equation constructor to take JSON object as argument, then
+// can replace HTML with eqn.balance()'s output instead of debug_du_jour()'s
+//include "../php/sci_funcs.php";
+include "../php/chem_funcs.php";
 
-include "../php/sci_funcs.php";
-
+//<form name='balance' id='balance' action='balance.php' method='post' style='margin-bottom:0;'>
 echo <<<'EOT'
 <table class='center' style='width: 800px'> 
 <tr><td>
-<form name='balance' id='balance' action='balance.php' method='post' style='margin-bottom:0;'>
+<form name='balance' id='balance' action='#' method="" style='margin-bottom:0;'>
 <label><b>Enter a chemical equation to balance:</b><br>
 EOT;
-echo "<input autofocus name='reaction' id='reaction' value='",$_POST["reaction"],"' maxlength='200' style='width: 80%;' placeholder='Enter a chemical equation to balance'></label>\n";
+//echo "<input autofocus name='reaction' id='reaction' value='",$_POST["reaction"],"' maxlength='200' style='width: 80%;' placeholder='Enter a chemical equation to balance'></label>\n";
+echo "<input autofocus name='reaction' id='reaction' maxlength='200' style='width: 80%;' placeholder='Enter a chemical equation to balance' oninput='rxnChanged(this);'></label>\n";
+//<input type='submit' value='Balance'>
 echo <<<'EOS'
-<input type='submit' value='Balance'>
+<input type='button' name="bal_button" value='Balance' onclick="postReaction();" ;>
 </form>
 </td></tr>
 <tr><td>
 EOS;
 
-//$n1 = 15; $n2 = 24;
-//echo "for ", $n1, " and ", $n2, " LCM=";
-//echo lcm($n1, $n2), ", GCF=", gcf($n1, $n2), "<br>";
-//echo "<hr>";
-if (strlen($_POST["reaction"]) > 0) {
-    $eqn = new Equation($_POST["reaction"]);
+$eqf = EqFactory::getInstance();
+$eqn = $eqf->newEquation();
+if ($eqn != NULL) {
     $rxnts = $eqn->getReactants();
     $prods = $eqn->getProducts();
     if ($rxnts == NULL || $prods == NULL) {
-        echo $_POST["reaction"], " is INVALID!!<br>";
+        $eqn->showReaction("The reaction:");
+        echo "<br>is INVALID!!<br>";
     } else {
         $eqn->showReaction("Starting (Unbalanced) reaction");
         echo "<hr><br>";
-        //$eqn->debug_du_jour();
         $eqn->balance();
         echo <<<"TMP"
 Steps in balancing:<br>
@@ -92,6 +97,25 @@ echo <<<'EOT'
 <script src="../js/tp_common.js"></script>
 <script src="../js/chem_validate.js"></script>
 <script>
-		var eq = new ChemRxn($("input#reaction").val());
+    var cur_txt, last_txt;
+    function rxnChanged(tb) {
+        cur_txt = tb.value;
+    };
+        
+    function postReaction() {
+        var eq = new ChemRxn(cur_txt);
+        var post_json = JSON.stringify(eq);
+        var xhr = new XMLHttpRequest();
+        last_txt = cur_txt;
+        xhr.open("POST", "balance.php");
+        xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+        xhr.send(post_json);
+        
+        //console.log("xhr:", xhr);
+        xhr.onloadend = function () {
+            document.body.innerHTML = xhr.responseText;
+            $("input#reaction").val(last_txt);
+          };
+    };
 </script>
 EOT;
