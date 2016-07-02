@@ -1,3 +1,6 @@
+//NYI
+// use localized strings? Maybe for periodic table long names?
+
 function nonWSTrimLeft(instr, trimchars) {
     let rv = instr;
     let pos = 0;

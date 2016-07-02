@@ -1,7 +1,5 @@
 // NYI: 
-// output more specific client error messages when invalid input given
-// (e.g., bad element, more elems on side than another, no products,
-//   warn user if extra ='s signs given)
+// use localized strings?
 // ? probably more php-side - add CSS/HTML(JS?) output to prettify output
 
 var nwstrim, nwstrimleft, nwstrimright;
@@ -18,7 +16,8 @@ class ChemRxnSide {
         let nextcap = 32767;
         let posrc = -1;
         
-        for (var cur_cap = "A".codePointAt(0); cur_cap <= "Z".codePointAt(0); cur_cap++) {
+        for (var cur_cap = "A".codePointAt(0);
+                cur_cap <= "Z".codePointAt(0); cur_cap++) {
             posrc = instr.indexOf(String.fromCodePoint(cur_cap), 1);
             if (posrc >= 0) {
                 if (posrc < nextcap) {
@@ -48,6 +47,8 @@ class ChemRxnSide {
             nextlb++; 
         };
         if ((rbpos = instr.indexOf(")")) < 0) {
+            this.errstr += "No closing bracket for polyatomic ion ";
+            this.errstr += instr + "~+";
             return "";
         };
         let rblist = [rbpos];
@@ -59,6 +60,9 @@ class ChemRxnSide {
             nextrb++; 
         };
         if (lblist.length != rblist.length) {
+            this.errstr += "There are " + lblist.length + " ('s, yet ";
+            this.errstr += "there are " + rblist.length + " )'s in "+ instr;
+            this.errstr += " These counts should be the same~+";
             return "";
         };
         let val_0 = "0".codePointAt();
@@ -66,11 +70,27 @@ class ChemRxnSide {
         let cur_dig = 0;
         for (var i = 0; i < lblist.length; i++) {
             if ((rblist[i] - lblist[i]) < 3) {
+                this.errstr += "There is only one element between the ";
+                this.errstr += "()s at positions " + (lblist[i] + 1);
+                this.errstr += " and " + (rblist[i] + 1) + " in ";
+                this.errstr += instr + "~+";
                 return "";
             };
+            if ((rblist[i] - lblist[i]) < 4) {
+            if (instr[rblist[i] - 1] >= "a" ) {
+                this.errstr += "There is only one element between the ";
+                this.errstr += "()s at positions " + (lblist[i] + 1);
+                this.errstr += " and " + (rblist[i] + 1) + " in ";
+                this.errstr += instr + "~+";
+                return "";
+            }
+            }
             cur_digpos = rblist[i] + 1;
             cur_dig = instr[cur_digpos].codePointAt() - val_0;
             if (cur_dig < 0 || cur_dig > 9) {
+                this.errstr += "Bracketed polyatomic ion has no outer ";
+                this.errstr += "subscript in " + instr + " near char ";
+                this.errstr += cur_digpos + "~+";
                 return "";
             };
             cur_digpos++;
@@ -100,6 +120,8 @@ class ChemRxnSide {
             let rawcp = rawcomps[rawcp_i];
             rawcp = nwstrimleft(rawcp, "0123456789").trim();
             if (rawcp[0].codePointAt() >= "a".codePointAt()) {
+                this.errstr += "First element invalid: starts with ";
+                this.errstr += "lower-case letter~+";
                 this.comps = null; return;
             };
             // start off with 1 of each compound (i.e., coefficient=1)
@@ -117,10 +139,11 @@ class ChemRxnSide {
                 for (var ion_i in pa_list) {
                     let cur_ion = pa_list[ion_i];
                     ion_info = cur_ion.split("=");
-                    this.comps.get(rawcp).set(ion_info[0], parseInt(ion_info[1]));
+                    this.comps.get(rawcp).set(ion_info[0], 
+                            parseInt(ion_info[1]));
                 };
             };
-            };
+        };
     };
 
     count_elems(rawcp, rawcpstr, sub=1) {
@@ -141,6 +164,7 @@ class ChemRxnSide {
                 atomcnt = ["1"];
             };
             if (!PT.has(cur_elem)) {
+                this.errstr += "Invalid element '" + cur_elem + "'~+";
                 this.comps = null; return false;
             };
             rawcpstr =  rawcpstr.substr(cur_term.length);
@@ -150,7 +174,8 @@ class ChemRxnSide {
             } else {
                 cur_cnt = rcp.get(cur_elem)
             }
-            this.comps.get(rawcp).set(cur_elem, cur_cnt + (parseInt(atomcnt[0])*sub));
+            this.comps.get(rawcp).set(cur_elem, cur_cnt + 
+                    (parseInt(atomcnt[0])*sub));
             cur_term = this.find_capital_term(rawcpstr);
         };
         return true;
@@ -162,6 +187,8 @@ class ChemRxnSide {
         let cur_term = "";
         let sub = 0;
         
+        // in case "==", "===", etc are in input
+        if (instr === undefined || instr.length < 1) return;
         this.init_comps(instr);
         if (this.comps == null) return;
         for (var rawcp of this.comps.keys()) {
@@ -214,13 +241,17 @@ class ChemRxnSide {
                 };
             };
         } else {
-            console.log("no element entries to sort!!");
+            this.errstr += "No element entries to sort!!~+";
             this.comps = null;
         };
     };
 
     getComps() {
         return this.comps;
+    }
+    
+    getErrorString() {
+        return this.errstr;
     }
     
     constructor(instr){
@@ -230,6 +261,7 @@ class ChemRxnSide {
         nwstrimright = nonWSTrimRight;
         
         this.comps = new Map();
+        this.errstr = "";
         
         this.get_comps_with_pluses(instr);
         if (this.comps == null) {
@@ -263,18 +295,34 @@ class ChemRxnSide {
 };
 
 class ChemRxn {
+    getErrorString() {
+        return this.errstr;
+    }
+
     constructor(instr) {
-        instr = instr.toString();
+        instr = instr.toString().trim();
+        this.errstr = "";
         if (instr.indexOf("=") < 0) {
-            console.log("No products given!!");
+            this.errstr = "No products given!!~+";
+        } else if (instr.indexOf("=") < 2) {
+            this.errstr = "No reactants given!! Cannot start input with '='~+";
         } else if (instr.indexOf("=", (instr.indexOf("=") + 1)) >= 0) {
-            console.log("WARNING! Too many ='s!!");
+            if (instr.indexOf("==") >= 0) {
+                this.errstr = "ERROR! Consecutive ='s not allowed!! ";
+                this.errstr += "They cause products to be skipped~+";
+            } else {
+                this.errstr = "WARNING! Too many ='s!!~+";            
+            }
         };
         let eqsides = instr.split("=");
         this.rxnts = new ChemRxnSide(eqsides[0]);
         if (this.rxnts.getComps() != null) {
             this.prods = new ChemRxnSide(eqsides[1]);
+            if (this.prods.getComps() == null) {
+                this.errstr += "Products: " + this.prods.getErrorString();
+            }
+        } else {
+            this.errstr += "Reactants:" + this.rxnts.getErrorString();
         }
-        // check to see if rxn is valid, then package as JSON
     }
 };

@@ -22,7 +22,14 @@ jU7Nk3 = jU3 + Nk2 (element starts with lower case letter)
 Yt7 + P17 = P4Yt10 (Yt is not in periodic table)
 K2MnO4 + CO2 (should be invalid because no products given)
 K2MnO4 + CO2 = KMnO4 + K2CO3 + MnO2 = PO (expect last = term to be ignored)
+Al + NO3 = Al(NO3)2 + H2O (different count of elements on each side)
+Al + NO3 + P4 = Al(NO3)2 + H2O (equal count of elements, but P != H)
+  = DyW + NH3 (makes sure input is trimmed, and invalid because no reactants)
 Al + NO3 + HCl + U7 + Cl2 + S8 = Al(NO3)2 + H2O + (NO4)7(U2H)8(Cl5H6S4)50
+-- mess around with the large fake polyatomic ion in this reaction to check
+   all the error cases for pa ions (e.g., bracketing errors, only one element
+   in brackets, no subscript after a right bracket)
+-- might be worth it to add those test cases to this file
 K4Fe(CN)6 + KMnO4 + H2SO4 = KHSO4 + Fe2(SO4)3 + MnSO4 + HNO3 + CO2 + H2O
 K2MnO4 + Cl2 = KMnO4 + KCl
 

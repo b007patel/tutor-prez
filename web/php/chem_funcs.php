@@ -5,6 +5,7 @@ include_once "vars.php";
 // - try to clean up code
 // --- when possible make any duplicated code into a shared function
 //   like before. See testcases.txt on computer for details.
+// use localized strings?
 // - add CSS/HTML(JS?) output to prettify output
 
 class EqSide {
@@ -12,29 +13,30 @@ class EqSide {
     private $cpds_by_elem = [];
     private $wksheet = NULL;
     
-	// check string for digits (i.e., subscripts). If none found, confirm
-	// that remaining string is not an element
-	public static function isCompound($instr) {
-		$i = -1;
-		$len = strlen($instr);
-		$zero = ord("0");
-		$nine = ord("9");
-		$is_an_elem = true;
-	
-		while ($i < $len && $is_an_elem) {
-			$i++;
-			$curr_code = ord($instr[$i]);
-			$is_an_elem = ($curr_code < $zero || $curr_code > $nine);
-		}
-		if ($is_an_elem) {
-			$is_an_elem = strlen($instr) <= 2;
-			//if ($is_an_elem) {
-			//	$is_an_elem = array_key_exists($instr, $GLOBALS["pt"]);
-			//}
-		}
-		return !$is_an_elem;
-	}
-	
+    // check string for digits (i.e., subscripts). If none found, confirm
+    // that remaining string is not an element
+    public static function isCompound($instr) {
+        $i = -1;
+        $len = strlen($instr);
+        $zero = ord("0");
+        $nine = ord("9");
+        $is_an_elem = true;
+    
+        while ($i < $len && $is_an_elem) {
+            $i++;
+            $curr_code = ord($instr[$i]);
+            $is_an_elem = ($curr_code < $zero || $curr_code > $nine);
+        }
+        if ($is_an_elem) {
+            // Ensure element is a legit symbol: A or Ab.
+            // Symbols such as c or cd or cD unacceptable
+            $is_an_elem = $len <= 2;
+            if ($is_an_elem) $is_an_elem = $instr[0] <= "Z";
+            if ($is_an_elem && $len > 1) $is_an_elem = $instr[1] >= "a";
+        }
+        return !$is_an_elem;
+    }
+    
     private function start_worksheet(){
         $coef = 1;
         foreach ($this->comps as $cp => $elems) {
@@ -150,6 +152,8 @@ class Equation {
     private $indent = 0;
     private $cpds_by_elem = [];
     private $steps = [];
+    private $errors = [];
+    private $raw_json = "";
     private $dbgfile = NULL;
     private $formattedRxn = "";
     private $last_bal_elem = "";
@@ -157,14 +161,18 @@ class Equation {
     function __construct($instr){
         $this->dbgfile = fopen($_SERVER["DOCUMENT_ROOT"]."/php/dbg_out.txt", 
                 "w");
-        $pos_of_bad = strpos($instr, "--BAD--"); 
-        if ($pos_of_bad >= 0) {
-            $this->formattedRxn = ltrim(substr($instr, $pos_of_bad));
-            $this->formattedRxn = rtrim($this->formattedRxn, "}]");
+        $this->raw_json = $instr;
+        $pos_of_bad = strpos($instr, "--BAD--");
+        $warning_given = strpos($instr, "WARNING") > 0; 
+        if ($pos_of_bad > 0 || $warning_given) {
+            $this->setErrorsFromJSON($instr, $pos_of_bad);
         }
         $eqjson = json_decode($instr);
         $rawrxnts = $eqjson->rxnts;
-        if ($rawrxnts == NULL || $rawrxnts === undefined) return;
+        if ($rawrxnts == NULL || $rawrxnts === undefined) {
+            $this->setErrorsFromJSON($instr, $pos_of_bad);
+            return;
+        }
         $this->rxnts = new EqSide($rawrxnts);
         if ( $this->rxnts->getCompoundList() == NULL ) return;
         $rawprods = $eqjson->prods;
@@ -190,7 +198,16 @@ class Equation {
                 foreach ($rxwk as $elem => $cnt) {
                     $this->wksheet[$elem] = [$rxwk[$elem], $prwk[$elem]];
                 }
+            } else {
+                $cur_err = "Reactant element ".$rxelems[$i - 1]." is not ";
+                $cur_err .= "in any product";
+                $this->errors[count($this->errors)] = $cur_err;
             }
+        } else {
+            $cur_err = "There are ".count($rxwk)." reactant elements, yet ";
+            $cur_err .= "there are ".count($prwk)." product elements. ";
+            $cur_err .= "These counts should be equal";
+            $this->errors[count($this->errors)] = $cur_err;
         }
                 
         if ($this->wksheet == NULL) {
@@ -204,6 +221,22 @@ class Equation {
                     [$rxcpds_by_elem[$elem], $prcpds_by_elem[$elem]]; 
             }
         }
+    }
+    
+    private function setErrorsFromJSON($instr, $bpos) {
+        $this->formattedRxn = ltrim(substr($instr, $bpos));
+        $this->formattedRxn = rtrim($this->formattedRxn, "}]");
+        $rawerrs = ltrim(split("\"errstr\"", $instr)[1], ":\"'");
+        $rawerrs = substr($rawerrs, 0, strpos($rawerrs, '","') - 1);
+        $this->errors = split("~+", $rawerrs);
+        foreach ($this->errors as $i=>$err) {
+            $this->errors[$i] = trim($err, "~+ ");
+            if (strlen($err) < 1) array_splice($this->errors, $i);
+        }
+    }
+    
+    public function getErrors() {
+        return $this->errors;
     }
     
     public function getReactants() {
@@ -617,7 +650,7 @@ class Equation {
         }
     }
     
-    private function updateWorksheet($elem, $first_balance=false){
+    private function updateWorksheet($elem, $first_balance=false) {
         $empty = NULL;
         $this->indent = 0;
         // find compound(s) for given element to balance
@@ -939,15 +972,44 @@ class Equation {
         $this->formatReaction();
         echo $this->formattedRxn;
     }
-    
-    private function formatInvalidReaction($fontsize, $f_end) {
-        $this->formattedRxn = substr($this->formattedRxn, 7);
+
+    private function formatInvalidReaction($fontsize, $f_end, $no_raw_rxn) {
+        function formatRawJSONRxn($rawjson) {
+            $raw_rxn = "";
+            $raw_cpds = split("rxnts", $rawjson);
+            $prod_pos = strpos(join($raw_cpds), "prods");
+            $prods_given = $prod_pos > 0;
+            if ($prods_given) {
+                $aftprods = substr(join($raw_cpds), $prod_pos);
+                $prods_given = strpos($aftprods, ":") > 0;
+            }
+            $raw_cpds = split(": "."\[{", $raw_cpds[1]);
+            for ($i=0; $i < count($raw_cpds) - 1; $i ++) {
+                $split1 = split(':\{"', $raw_cpds[$i]);
+                $cur_cpd = $split1[1];
+                if (strlen($cur_cpd) < 1) $cur_cpd = $split1[0];
+                if (strpos($cur_cpd, "], ") > 0) {
+                    $split2 = split("}\], ", $cur_cpd);
+                    $cur_cpd = $split2[1];
+                }
+                $raw_rxn .= trim($cur_cpd, '{[""]}')." + ";
+            }
+            $raw_rxn = rtrim($raw_rxn, " +");
+            if ($prods_given) $raw_rxn = "= ".$raw_rxn;
+            return $raw_rxn;            
+        }
+        
+        if ($no_raw_rxn) {
+            $this->formattedRxn = formatRawJSONRxn($this->raw_json);
+        } else {
+            $this->formattedRxn = substr($this->formattedRxn, 7);
+        }
         $this->formattedRxn = $fontsize.$this->formattedRxn.$f_end;
         $haveNum = false;
         $fmtstr = $fontsize;
         for ($i=strlen($fontsize);
         $i < strlen($this->formattedRxn); $i++) {
-            $curnum = ord($this->formattedRxn[$i]) - ord("0");
+                $curnum = ord($this->formattedRxn[$i]) - ord("0");
             if ($curnum >= 0 && $curnum <= 9) {
                 if (!$haveNum) {
                     $haveNum = true;
@@ -966,15 +1028,18 @@ class Equation {
         $fontsize = "<font size=5>";
         $f_end = "</font>";
         $badstr = substr($this->formattedRxn, 0, 7);
-        if ( $badstr == "--BAD--") {
-            $this->formatInvalidReaction($fontsize, $f_end);
+        $jscript_bad_eqn = $badstr == "--BAD--";
+        $php_bad_eqn = ($this->rxnts == NULL || $this->prods == NULL);
+        if ($jscript_bad_eqn || $php_bad_eqn) {
+            $this->formatInvalidReaction($fontsize, $f_end, 
+                    !$jscript_bad_eqn);
             return;
         }
         $outstr = $fontsize;
         foreach ($this->rxnts->getCompoundList() as $cpd=>$elems) {
             $cpdstr = "";
             if ($elems["#"] > 1) {
-                   $cpdstr .= $elems["#"];
+               $cpdstr .= $elems["#"];
             }
             $cpdstr .= $this->formatCompound($cpd)." + ";
             $outstr .= $cpdstr;
@@ -982,12 +1047,12 @@ class Equation {
         $outstr = rtrim($outstr, " +");
         $outstr .= " ==> ";
         foreach ($this->prods->getCompoundList() as $cpd=>$elems) {
-                  $cpdstr = "";
-                  if ($elems["#"] > 1) {
-                      $cpdstr .= $elems["#"];
-                  }
-               $cpdstr .= $this->formatCompound($cpd)." + ";
-                 $outstr .= $cpdstr;
+            $cpdstr = "";
+            if ($elems["#"] > 1) {
+                $cpdstr .= $elems["#"];
+            }
+            $cpdstr .= $this->formatCompound($cpd)." + ";
+            $outstr .= $cpdstr;
         }
         $outstr = rtrim($outstr, " +");
         $outstr .= $f_end."\n";
@@ -1034,6 +1099,8 @@ class EqFactory {
         $eqJSON = stripslashes($rawEqJSON);
         $eqJSON = substr($eqJSON, 0, strlen($eqJSON) - 5)."}]}}";
         $eqJSON = str_replace('""', '"', $eqJSON);
+        // fix for errstr member for valid equations
+        $eqJSON = str_replace(':",', ':"",', $eqJSON);
         $eqJSON = str_replace('"[', '[', $eqJSON);
         $eqJSON = str_replace(']"', ']', $eqJSON);
         $eqJSON = str_replace('"{', '{', $eqJSON);

@@ -1,22 +1,15 @@
 <?php
-//TODO:
-// - add client side error messages specific to errors (e.g., unknown 
-// element, mismatched elements, no products) 
-// - fix Equation constructor to take JSON object as argument, then
-// can replace HTML with eqn.balance()'s output instead of debug_du_jour()'s
-//include "../php/sci_funcs.php";
+//NYI:
+// use localized strings?
 include "../php/chem_funcs.php";
 
-//<form name='balance' id='balance' action='balance.php' method='post' style='margin-bottom:0;'>
 echo <<<'EOT'
 <table class='center' style='width: 800px'> 
 <tr><td>
 <form name='balance' id='balance' action='#' method="" style='margin-bottom:0;'>
 <label><b>Enter a chemical equation to balance:</b><br>
 EOT;
-//echo "<input autofocus name='reaction' id='reaction' value='",$_POST["reaction"],"' maxlength='200' style='width: 80%;' placeholder='Enter a chemical equation to balance'></label>\n";
-echo "<input autofocus name='reaction' id='reaction' maxlength='200' style='width: 80%;' placeholder='Enter a chemical equation to balance' oninput='rxnChanged(this);'></label>\n";
-//<input type='submit' value='Balance'>
+echo "<input autofocus name='reaction' id='reaction' maxlength='200' style='width: 80%;' placeholder='Enter a chemical equation to balance' oninput='rxnChanged(this);' onkeypress='return kpHandler(event);'></label>\n";
 echo <<<'EOS'
 <input type='button' name="bal_button" value='Balance' onclick="postReaction();" ;>
 </form>
@@ -32,7 +25,18 @@ if ($eqn != NULL) {
     if ($rxnts == NULL || $prods == NULL) {
         $eqn->showReaction("The reaction:");
         echo "<br>is INVALID!!<br>";
+        echo "<br>Error(s):<br>";
+        foreach ($eqn->getErrors() as $i=>$err) {
+        	echo "- ", $err, "<br>";
+        }
     } else {
+    	if (count($eqn->getErrors()) > 0) {
+    		echo "<br>Warning(s):<br>";
+    	    foreach ($eqn->getErrors() as $i=>$err) {
+        		echo "- ", $err, "<br>";
+        	}
+        	echo "<br><br>";
+    	}
         $eqn->showReaction("Starting (Unbalanced) reaction");
         echo "<hr><br>";
         $eqn->balance();
@@ -102,10 +106,18 @@ echo <<<'EOT'
         cur_txt = tb.value;
     };
         
+	function kpHandler(event) {
+    	if (event.which == 13 || event.keyCode == 13) {
+        	postReaction();
+        	return false;
+    	}
+    	return true;
+	};
+
     function postReaction() {
         var eq = new ChemRxn(cur_txt);
         var post_json = JSON.stringify(eq);
-        var xhr = new XMLHttpRequest();
+		var xhr = new XMLHttpRequest();
         last_txt = cur_txt;
         xhr.open("POST", "balance.php");
         xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
@@ -115,7 +127,7 @@ echo <<<'EOT'
         xhr.onloadend = function () {
             document.body.innerHTML = xhr.responseText;
             $("input#reaction").val(last_txt);
-          };
+        };
     };
 </script>
 EOT;
