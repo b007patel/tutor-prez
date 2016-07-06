@@ -52,6 +52,15 @@ function copyMap(inmap) {
     return rv;
 };
 
+function kpEnterHandler(event, handler_func) {
+    if (event.which == 13 || event.keyCode == 13) {
+        handler_func();
+        return false;
+    }
+    return true;
+};
+
+
 var PT = new Map();
 PT.set("Ac",["Actinium",89]);
 PT.set("Ag",["Silver",47]);

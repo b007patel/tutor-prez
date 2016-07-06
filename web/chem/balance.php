@@ -9,9 +9,13 @@ echo <<<'EOT'
 <form name='balance' id='balance' action='#' method="" style='margin-bottom:0;'>
 <label><b>Enter a chemical equation to balance:</b><br>
 EOT;
-echo "<input autofocus name='reaction' id='reaction' maxlength='200' style='width: 80%;' placeholder='Enter a chemical equation to balance' oninput='rxnChanged(this);' onkeypress='return kpHandler(event);'></label>\n";
+echo "<input autofocus name='reaction' id='reaction' maxlength='200' ";
+echo "style='width: 80%;' placeholder='Enter a chemical equation to balance'";
+echo " oninput='ChemRxn.rxnChanged(this);' ";
+echo "onkeypress='return kpEnterHandler(event, ChemRxn.postReaction);'>";
+echo "</label>\n";
 echo <<<'EOS'
-<input type='button' name="bal_button" value='Balance' onclick="postReaction();" ;>
+<input type='button' name="bal_button" value='Balance' onclick="ChemRxn.postReaction();" ;>
 </form>
 </td></tr>
 <tr><td>
@@ -27,16 +31,16 @@ if ($eqn != NULL) {
         echo "<br>is INVALID!!<br>";
         echo "<br>Error(s):<br>";
         foreach ($eqn->getErrors() as $i=>$err) {
-        	echo "- ", $err, "<br>";
+            echo "- ", $err, "<br>";
         }
     } else {
-    	if (count($eqn->getErrors()) > 0) {
-    		echo "<br>Warning(s):<br>";
-    	    foreach ($eqn->getErrors() as $i=>$err) {
-        		echo "- ", $err, "<br>";
-        	}
-        	echo "<br><br>";
-    	}
+        if (count($eqn->getErrors()) > 0) {
+            echo "<br>Warning(s):<br>";
+            foreach ($eqn->getErrors() as $i=>$err) {
+                echo "- ", $err, "<br>";
+            }
+            echo "<br><br>";
+        }
         $eqn->showReaction("Starting (Unbalanced) reaction");
         echo "<hr><br>";
         $eqn->balance();
@@ -100,34 +104,4 @@ echo <<<'EOT'
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
 <script src="../js/tp_common.js"></script>
 <script src="../js/chem_validate.js"></script>
-<script>
-    var cur_txt, last_txt;
-    function rxnChanged(tb) {
-        cur_txt = tb.value;
-    };
-        
-	function kpHandler(event) {
-    	if (event.which == 13 || event.keyCode == 13) {
-        	postReaction();
-        	return false;
-    	}
-    	return true;
-	};
-
-    function postReaction() {
-        var eq = new ChemRxn(cur_txt);
-        var post_json = JSON.stringify(eq);
-		var xhr = new XMLHttpRequest();
-        last_txt = cur_txt;
-        xhr.open("POST", "balance.php");
-        xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-        xhr.send(post_json);
-        
-        //console.log("xhr:", xhr);
-        xhr.onloadend = function () {
-            document.body.innerHTML = xhr.responseText;
-            $("input#reaction").val(last_txt);
-        };
-    };
-</script>
 EOT;

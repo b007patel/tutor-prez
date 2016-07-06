@@ -1,8 +1,12 @@
 // NYI: 
-// use localized strings?
+// use localized strings? Angular JS vs other JS frameworks? Check out JS
+// projects from todomvc.com for an in-depth comparison
 // ? probably more php-side - add CSS/HTML(JS?) output to prettify output
 
 var nwstrim, nwstrimleft, nwstrimright;
+// no good way of defining static members of classes. Use module globals
+// instead
+var cur_rxn, last_rxn;
 
 class ChemRxnSide {
     // Assumed instr already starts with a capital
@@ -295,6 +299,26 @@ class ChemRxnSide {
 };
 
 class ChemRxn {
+    static rxnChanged(tb) {
+        cur_rxn = tb.value;
+    };
+
+    static postReaction() {
+        var eq = new ChemRxn(cur_rxn);
+        var post_json = JSON.stringify(eq);
+        var xhr = new XMLHttpRequest();
+        last_rxn = cur_rxn;
+        xhr.open("POST", "balance.php");
+        xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+        xhr.send(post_json);
+
+        //console.log("xhr:", xhr);
+        xhr.onloadend = function () {
+            document.body.innerHTML = xhr.responseText;
+            $("input#reaction").val(last_rxn);
+        };
+    };
+
     getErrorString() {
         return this.errstr;
     }
