@@ -1,5 +1,5 @@
 <?php
-include_once "vars.php";
+include "tp_vars.php";
 
 // NYI: 
 // - try to clean up code
@@ -154,13 +154,12 @@ class Equation {
     private $steps = [];
     private $errors = [];
     private $raw_json = "";
-    private $dbgfile = NULL;
+    private static $dbgfile = NULL;
     private $formattedRxn = "";
     private $last_bal_elem = "";
     
     function __construct($instr){
-        $this->dbgfile = fopen($_SERVER["DOCUMENT_ROOT"]."/php/dbg_out.txt", 
-                "w");
+        Equation::openDbgFile($_SERVER["DOCUMENT_ROOT"]."/php/dbg_out.txt");
         $this->raw_json = $instr;
         $pos_of_bad = strpos($instr, "--BAD--");
         $warning_given = strpos($instr, "WARNING") > 0; 
@@ -199,13 +198,13 @@ class Equation {
                     $this->wksheet[$elem] = [$rxwk[$elem], $prwk[$elem]];
                 }
             } else {
-                $cur_err = "Reactant element ".$rxelems[$i - 1]." is not ";
-                $cur_err .= "in any product";
+                $cur_err = "Reactant element ".$rxelems[$i - 1]." is ";
+                $cur_err .= "not in any product";
                 $this->errors[count($this->errors)] = $cur_err;
             }
         } else {
-            $cur_err = "There are ".count($rxwk)." reactant elements, yet ";
-            $cur_err .= "there are ".count($prwk)." product elements. ";
+            $cur_err = "There are ".count($rxwk)." reactant elements, ";
+            $cur_err .= "yet there are ".count($prwk)." product elements. ";
             $cur_err .= "These counts should be equal";
             $this->errors[count($this->errors)] = $cur_err;
         }
@@ -223,6 +222,36 @@ class Equation {
         }
     }
     
+    private static function getHTMLList(&$strs) {
+        $cur_lev = -1;
+        $fmtted_strs = [];
+        for ($i=0; $i < count($strs); $i++) {
+            $rawstr = $strs[$i];
+            $step_lev = 0;
+            $listchg = "";
+            while ($rawstr[$step_lev] == "-") {
+                $step_lev++;
+            }
+            $rawstr = trim($rawstr, "-");
+            $lev_diff = $step_lev - $cur_lev;
+            $cl_arg = ($cur_lev >= 0)?$cur_lev:0;
+            if ($lev_diff == 1) {
+                $listchg = str_repeat("\t", $cl_arg)."<ul>\n";
+                $cur_lev = $step_lev;
+            } else if ($lev_diff == -1) {
+                $listchg = str_repeat("\t", $cl_arg)."</ul>\n";
+                $cur_lev = $step_lev;
+            } else if ($lev_diff != 0) {
+                Equation::dbgOut(
+                        "Indent diff should only be +/-1, not ".$lev_diff);
+            }
+            $curstr = $listchg.str_repeat("\t", $step_lev)."<li>";
+            $curstr .= $rawstr."</li>";
+            $fmtted_strs[$i] = $curstr;
+        }
+        return $fmtted_strs;
+    }
+    
     private function setErrorsFromJSON($instr, $bpos) {
         $this->formattedRxn = ltrim(substr($instr, $bpos));
         $this->formattedRxn = rtrim($this->formattedRxn, "}]");
@@ -230,13 +259,23 @@ class Equation {
         $rawerrs = substr($rawerrs, 0, strpos($rawerrs, '","') - 1);
         $this->errors = split("~+", $rawerrs);
         foreach ($this->errors as $i=>$err) {
-            $this->errors[$i] = trim($err, "~+ ");
+            $this->errors[$i] = trim($err, "~+ ")."\n";
             if (strlen($err) < 1) array_splice($this->errors, $i);
         }
     }
     
-    public function getErrors() {
-        return $this->errors;
+    public function getErrors($ret_type="html") {
+        if (strtolower($ret_type) != "html") {
+            return $this->errors;
+        }
+        return Equation::getHTMLList($this->errors);
+    }
+    
+    public function getSteps($ret_type="html") {
+        if (strtolower($ret_type) != "html") {
+            return $this->steps;
+        }
+        return Equation::getHTMLList($this->steps);
     }
     
     public function getReactants() {
@@ -285,9 +324,8 @@ class Equation {
     }
     
     public function logStep($step) {
-        $init_str = "- ";
-        $indent_str = "--";
-        $cur_step = $init_str.$step;
+        $indent_str = "-";
+        $cur_step = $step;
         for ($i=0; $i < $this->indent; $i++) {
             $cur_step = $indent_str.$cur_step;
         }
@@ -301,10 +339,22 @@ class Equation {
         $this->logStep($cur_step);
     }
     
-    private function dbgOut($instr, $in_arr="junk") {
+    private static function openDbgFile($dbgfname) {
+        Equation::$dbgfile = fopen($dbgfname,"w");
+    }
+    
+    private static function closeDbgFile() {
+        fclose(Equation::$dbgfile);
+    }
+    
+    private static function rawDbgWrite($instr) {
+        fwrite(Equation::$dbgfile, $instr);
+    }
+    
+    private static function dbgOut($instr, $in_arr="junk") {
         if (!is_array($in_arr)) {
             echo $instr, "<br>";
-            fwrite($this->dbgfile, $instr."\n");
+            Equation::rawDbgWrite($instr."\n");
             return;
         }
         
@@ -313,7 +363,7 @@ class Equation {
         $outstr .= print_r($in_arr, true);
         if (count($tmparr) > 1) $outstr .= $tmparr[1];
         echo $outstr, "<br>";
-        fwrite($this->dbgfile, $outstr."\n");
+        Equation::rawDbgWrite($outstr."\n");
     }
     
     private function getOKElems(&$pe, $OH, $condition) {
@@ -455,6 +505,7 @@ class Equation {
     }
 
     private function applyWorksheetChanges($eqside){
+        //NYI: create a div on the webpage for each applied worksheet
         if ($eqside == "reactant") {
             $this->rxnts->changeWorksheet();
         } else {
@@ -495,7 +546,7 @@ class Equation {
         return $rv;
     }
 
-    private function compareBalancingofWorksheets(&$wks1, &$wks2, $elem) {
+    private function compareWorksheets(&$wks1, &$wks2, $elem) {
         $right_wks_better = false;;
         
         //dbg
@@ -729,8 +780,7 @@ class Equation {
                 $this->applyWorksheetChanges($ps_str);
                 $wks2 = $this->wksheet;
                 $foundNewBalanced = 
-                        $this->compareBalancingofWorksheets($wks1, $wks2, 
-                            $elem);
+                        $this->compareWorksheets($wks1, $wks2, $elem);
                 $step_st = "Balance";
                 if ($foundNewBalanced) {
                     $cur_step = $step_st." using ".$cpd.", which has a ".$elem;
@@ -783,11 +833,10 @@ class Equation {
                     $step_st = "Balance";
                     if ($foundNewBalanced) $step_st = "Re-balance";
                     $foundNewBalanced = 
-                            $this->compareBalancingofWorksheets($wks1, $wks2, 
-                                $elem);
+                            $this->compareWorksheets($wks1, $wks2, $elem);
                     if ($foundNewBalanced) {
                         $wks1 = $wks2;
-                           $coef_is_diff = true;
+                        $coef_is_diff = true;
                         $cur_step = $step_st." by changing coefficients of ";
                         $cur_step .= $elem." compounds such that their ";
                         $cur_step .= "atom count sum is a factor of ";
@@ -955,36 +1004,34 @@ class Equation {
             }
         }
         // debug - output all steps to debug file
-        fwrite($this->dbgfile, "DEBUG list all steps\n");
-        fwrite($this->dbgfile, "=======".count($this->steps)."=========\n");
+        Equation::rawDbgWrite("DEBUG list all steps\n");
+        Equation::rawDbgWrite("=======".count($this->steps)."=========\n");
         for ($i=0;$i < count($this->steps); $i++) {
-            fwrite($this->dbgfile, $this->steps[$i]."\n");
+            Equation::rawDbgWrite($this->steps[$i]."\n");
         }
-        fclose($this->dbgfile);
+        Equation::closeDbgFile();
     }
     
-    public function getSteps() {
-        return $this->steps;
-    }
-
     public function showReaction($header) {
-        echo "\n", $header, ":<br>\n";
+        echo "\n\t\t\t", $header, ":<br>\n";
         $this->formatReaction();
         echo $this->formattedRxn;
     }
 
     private function formatInvalidReaction($fontsize, $f_end, $no_raw_rxn) {
+        // get reaction string from raw JSON string
         function formatRawJSONRxn($rawjson) {
             $raw_rxn = "";
             $raw_cpds = split("rxnts", $rawjson);
-            $prod_pos = strpos(join($raw_cpds), "prods");
-            $prods_given = $prod_pos > 0;
-            if ($prods_given) {
-                $aftprods = substr(join($raw_cpds), $prod_pos);
-                $prods_given = strpos($aftprods, ":") > 0;
-            }
             $raw_cpds = split(": "."\[{", $raw_cpds[1]);
             for ($i=0; $i < count($raw_cpds) - 1; $i ++) {
+                if (strpos($raw_cpds[$i], "prods") > 0) {
+                    if (strrpos($raw_rxn, "+") === false) {
+                        $raw_rxn = "= ";
+                    } else {
+                        $raw_rxn[strrpos($raw_rxn, "+")] = "=";
+                    }
+                }
                 $split1 = split(':\{"', $raw_cpds[$i]);
                 $cur_cpd = $split1[1];
                 if (strlen($cur_cpd) < 1) $cur_cpd = $split1[0];
@@ -995,7 +1042,6 @@ class Equation {
                 $raw_rxn .= trim($cur_cpd, '{[""]}')." + ";
             }
             $raw_rxn = rtrim($raw_rxn, " +");
-            if ($prods_given) $raw_rxn = "= ".$raw_rxn;
             return $raw_rxn;            
         }
         
@@ -1032,7 +1078,7 @@ class Equation {
         $php_bad_eqn = ($this->rxnts == NULL || $this->prods == NULL);
         if ($jscript_bad_eqn || $php_bad_eqn) {
             $this->formatInvalidReaction($fontsize, $f_end, 
-                    !$jscript_bad_eqn);
+                    !($jscript_bad_eqn));
             return;
         }
         $outstr = $fontsize;
@@ -1062,15 +1108,15 @@ class Equation {
 
     public function dumpWS(&$ws, $header) {
         echo "<pre>", $header, "\n";
-        fwrite($this->dbgfile, $header."\n");
+        Equation::rawDbgWrite($header."\n");
         echo "Element,R,P\n";    
-        fwrite($this->dbgfile, "Element,R,P\n");    
+        Equation::rawDbgWrite("Element,R,P\n");    
         foreach ($ws as $elem=>$cnts) {
             echo $elem, ", ", $cnts[0], ", ", $cnts[1], "\n";
-            fwrite($this->dbgfile, $elem.", ".$cnts[0].", ".$cnts[1]."\n");
+            Equation::rawDbgWrite($elem.", ".$cnts[0].", ".$cnts[1]."\n");
         }
         echo "</pre>";
-        fwrite($this->dbgfile, "\n+++++++++++++".count($this->steps)."+++++++++++++\n");
+        Equation::rawDbgWrite("\n+++++++++++++".count($this->steps)."+++++++++++++\n");
     }
 
     public function debug_du_jour() {

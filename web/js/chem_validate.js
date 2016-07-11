@@ -81,14 +81,14 @@ class ChemRxnSide {
                 return "";
             };
             if ((rblist[i] - lblist[i]) < 4) {
-            if (instr[rblist[i] - 1] >= "a" ) {
-                this.errstr += "There is only one element between the ";
-                this.errstr += "()s at positions " + (lblist[i] + 1);
-                this.errstr += " and " + (rblist[i] + 1) + " in ";
-                this.errstr += instr + "~+";
-                return "";
-            }
-            }
+                if (instr[rblist[i] - 1] >= "a" ) {
+                    this.errstr += "There is only one element between the ";
+                    this.errstr += "()s at positions " + (lblist[i] + 1);
+                    this.errstr += " and " + (rblist[i] + 1) + " in ";
+                    this.errstr += instr + "~+";
+                    return "";
+                };
+            };
             cur_digpos = rblist[i] + 1;
             cur_dig = instr[cur_digpos].codePointAt() - val_0;
             if (cur_dig < 0 || cur_dig > 9) {
@@ -133,7 +133,7 @@ class ChemRxnSide {
                 this.comps.set(rawcp, new Map());
                 cur_cpd = this.comps.get(rawcp);
                 cur_cpd.set("#", 1);
-            }
+            };
             if ((lbpos = rawcp.indexOf("(")) >= 0) {
                 let pa_str = this.find_all_pa_ions(rawcp, lbpos);
                 if (pa_str.length < 2) {
@@ -177,7 +177,7 @@ class ChemRxnSide {
                 cur_cnt = 0;
             } else {
                 cur_cnt = rcp.get(cur_elem)
-            }
+            };
             this.comps.get(rawcp).set(cur_elem, cur_cnt + 
                     (parseInt(atomcnt[0])*sub));
             cur_term = this.find_capital_term(rawcpstr);
@@ -252,11 +252,11 @@ class ChemRxnSide {
 
     getComps() {
         return this.comps;
-    }
+    };
     
     getErrorString() {
         return this.errstr;
-    }
+    };
     
     constructor(instr){
         //set trim functions;
@@ -280,10 +280,9 @@ class ChemRxnSide {
             // when toJSON() ancestor code runs
             rv = "--BAD--" + $("input#reaction").val() + "]]}";
             return rv;
-        }
+        };
         for (var cpd of this.comps.keys()) {
             rv += '"' + cpd + '": [{';
-            //rv += cpd + ": {";
             for (var e of this.comps.get(cpd).keys()) {
                 rv += '"' + e + '" : ' + this.comps.get(cpd).get(e) + '}, {';
             };
@@ -321,7 +320,7 @@ class ChemRxn {
 
     getErrorString() {
         return this.errstr;
-    }
+    };
 
     constructor(instr) {
         instr = instr.toString().trim();
@@ -336,7 +335,7 @@ class ChemRxn {
                 this.errstr += "They cause products to be skipped~+";
             } else {
                 this.errstr = "WARNING! Too many ='s!!~+";            
-            }
+            };
         };
         let eqsides = instr.split("=");
         this.rxnts = new ChemRxnSide(eqsides[0]);
@@ -344,9 +343,9 @@ class ChemRxn {
             this.prods = new ChemRxnSide(eqsides[1]);
             if (this.prods.getComps() == null) {
                 this.errstr += "Products: " + this.prods.getErrorString();
-            }
+            };
         } else {
             this.errstr += "Reactants:" + this.rxnts.getErrorString();
-        }
-    }
+        };
+    };
 };

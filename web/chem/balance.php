@@ -2,106 +2,130 @@
 //NYI:
 // use localized strings?
 include "../php/chem_funcs.php";
-
+$page_title = "Chemical Reaction Balancer (by Inspection)";
+include "../php/html-start-tmpl.php";
+//include "../php/nav_tmpl.php";
 echo <<<'EOT'
-<table class='center' style='width: 800px'> 
-<tr><td>
-<form name='balance' id='balance' action='#' method="" style='margin-bottom:0;'>
-<label><b>Enter a chemical equation to balance:</b><br>
-EOT;
-echo "<input autofocus name='reaction' id='reaction' maxlength='200' ";
-echo "style='width: 80%;' placeholder='Enter a chemical equation to balance'";
-echo " oninput='ChemRxn.rxnChanged(this);' ";
-echo "onkeypress='return kpEnterHandler(event, ChemRxn.postReaction);'>";
-echo "</label>\n";
-echo <<<'EOS'
-<input type='button' name="bal_button" value='Balance' onclick="ChemRxn.postReaction();" ;>
-</form>
-</td></tr>
-<tr><td>
-EOS;
+	<h2>Chemical Reaction Balancer</h2>
+	<div id="rxn_main" class="bdrtop col-sm-24 col-md-12">
+		<table class='center col-sm-24 col-md-12">
+		<div id="rxn_form"> 
+			<form name='balance' id='balance' action='#' method="" style='margin-bottom:0;'>
+			<tr>
+				<td><label class="col-sm-24 col-md-12"><b>Enter a chemical equation to balance:</b><br></td>
+			</tr>
+			<tr>
+				<td style='padding-left: 15px;'>
+					<input autofocus name='reaction' id='reaction'" style='width: 97%;' 
+						placeholder='Enter a chemical equation to balance'"
+						oninput='ChemRxn.rxnChanged(this);'
+						onkeypress='return kpEnterHandler(event, ChemRxn.postReaction);'>
+				</label></td>
+				<td><input type='button' name="bal_button" value='Balance' onclick="ChemRxn.postReaction();"></td>
+			</form>
+			</tr>
+		</div>
+		<tr>
+			<td>
 
+EOT;
 $eqf = EqFactory::getInstance();
 $eqn = $eqf->newEquation();
 if ($eqn != NULL) {
     $rxnts = $eqn->getReactants();
     $prods = $eqn->getProducts();
     if ($rxnts == NULL || $prods == NULL) {
+        echo "<br>\n<div id='rxn_errors' class='bdrtop'>\n";
         $eqn->showReaction("The reaction:");
-        echo "<br>is INVALID!!<br>";
-        echo "<br>Error(s):<br>";
+        echo "<br>is INVALID!!<br>\n";
+        echo "<br>Error(s):<br><ul>";
         foreach ($eqn->getErrors() as $i=>$err) {
-            echo "- ", $err, "<br>";
+            echo $err;
         }
+        echo "</ul>\n";
     } else {
         if (count($eqn->getErrors()) > 0) {
-            echo "<br>Warning(s):<br>";
+            echo "<br><div id='rxn_warns' class='bdrtop'>Warning(s):<br>\n";
             foreach ($eqn->getErrors() as $i=>$err) {
-                echo "- ", $err, "<br>";
+                echo $err;
             }
-            echo "<br><br>";
+            echo "</ul>\n</div><br><br>";
         }
+        echo "<div id='rxn_unbal' class='bdrtop'>";
         $eqn->showReaction("Starting (Unbalanced) reaction");
-        echo "<hr><br>";
         $eqn->balance();
         echo <<<"TMP"
-Steps in balancing:<br>
-=============<br>
+		</div>
+		<div id="rxn_steps" class="bdrtop">
+			Steps in balancing:<br>
+			=============<br>
 
 TMP;
         $steplist = $eqn->getSteps();
-        $too_many_steps = substr($steplist[0], 0, 2) == "**";
+        // 9 = strlen("<ul>\n<li>")
+        $too_many_steps = substr(trim($steplist[0]), 9, 2) == "**";
         if (!$too_many_steps) { 
             foreach ($eqn->getSteps() as $bal_step) {
                 echo <<<"TMP"
-$bal_step<br>
+			$bal_step
 
 TMP;
             }
         } else {
             echo <<<"TMP"
-$steplist[0]<br>
+			$steplist[0]
         
 TMP;
         }
         echo <<<'TMP'
-
-<hr>
-====final worksheet====<br>
+		</div>
+		<div class="bdrtop wksheet">
+			====final worksheet====<br>
 
 TMP;
         foreach ($eqn->getWorksheet() as $elem => $cnts) {
             echo <<<"TMP"
-<pre>$elem\t$cnts[0]\t$cnts[1]</pre>
+			<pre>$elem\t$cnts[0]\t$cnts[1]</pre>
 
 TMP;
         }
-        echo "\n<br><hr><br>";
+        echo "</div>\n\t\t<br>";
         if ($too_many_steps) { 
+            // because the first step is omitted (no need to repeat the
+            // "too hard to balance..." msg) insert a <ul> tag manually
             echo <<<"TMP"
 
-<div id="extra_steps" style="display: none;">
-Unabridged steps in balancing:<br>
-=============<br>
+		<div id="extra_steps" class="bdrtop" style="display: none;">
+			Unabridged steps in balancing:<br>
+			=============<br>
+			<ul>
 
 TMP;
             for ($i = 1; $i < count($steplist); $i++) {
                 echo <<<"TMP"
-- $steplist[$i]<br>
+			$steplist[$i]
 
 TMP;
             }
-            echo "<hr></div>";
+           echo "\t\t</div>\n";
         } else {
+            echo "\t\t<div id='rxn_bal' class='bdrtop'>\n";
             $eqn->showReaction("Balanced reaction");
+            echo "\t\t</div>\n";
         }
     }
 }
 
 echo <<<'EOT'
-</td></tr>
-</table>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
-<script src="../js/tp_common.js"></script>
-<script src="../js/chem_validate.js"></script>
+				</td>
+			</tr>
+		</div>
+		</table>
+	</div>
 EOT;
+//include "../php/footer-tmpl.php";
+$custom_scripts = <<<'CSP'
+<script src="../js/chem_validate.js"></script>
+
+CSP;
+include "../php/html-end-tmpl.php";
