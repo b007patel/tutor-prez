@@ -37,9 +37,13 @@ Complex:
 +++++++
 NaNO3 + NH4OH = NaH + NH4NO3 + HNO3
 NH4OH + NaNO3 = NaH + NH4NO3 + HNO3
+(NH4)2CO3 + AlPO4 = (NH4)3PO4 + Al2(CO3)3
+-- tests modifying coefficients of compounds with more than one of a given
+   polyatomic ion (e.g., NH4 above)
 C4H10 + O2 = CO2 + H2O
 O2 + C4H10 = H2O + CO2
-Zn7 + P17 = P4Zn10 (tests 2nd or later 'Z' element validation)
+Zn7 + P17 = P4Zn10
+-- tests 2nd or later 'Z' element validation, for example Zn
 O7 + P17 - P4O10
 P17 + O7 = P4O10
 MnO2 +  KOH + O2 = K2MnO4 + H2O

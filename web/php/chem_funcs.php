@@ -87,18 +87,19 @@ class EqSide {
         $this->start_worksheet();
     }
                         
-    public function changeCoefficient($elemorcpd, $coef, &$fulleq, 
+    public function changeCoefficient($ps, $elemorcpd, $coef, &$fulleq, 
             $is_diff=false) {
+        $pp = "{".strtoupper($ps[0])."}";
         if (EqSide::isCompound($elemorcpd)) {
-            $this->applyCoefficientChange([$elemorcpd], $coef, $fulleq, 
+            $this->applyCoefficientChange($pp, [$elemorcpd], $coef, $fulleq, 
                     $is_diff);
         } else {
-            $this->applyCoefficientChange($this->cpds_by_elem[$elemorcpd],
+            $this->applyCoefficientChange($pp, $this->cpds_by_elem[$elemorcpd],
                     $coef, $fulleq, $is_diff);
         }
     }
 
-    private function applyCoefficientChange($cpds, $coef, &$fulleq, 
+    private function applyCoefficientChange($pp, $cpds, $coef, &$fulleq, 
             $is_diff) {
         $orig_coef = 0;
         foreach ($cpds as $i=>$compound) {
@@ -108,6 +109,8 @@ class EqSide {
             $this->comps[$compound]["#"] = $orig_coef + $coef;
             $cur_step = "new ".$compound." coefficient ";
             $cur_step .= "is ".($orig_coef + $coef);
+            $cur_step .= Equation::STEPDELIM . $pp. $compound . ":";
+            $cur_step .= ($orig_coef + $coef);
             if ($fulleq !=  NULL) {
                 $fulleq->incIndent();
                 $fulleq->logStep($cur_step);
@@ -143,9 +146,10 @@ class EqSide {
 }
 
 class Equation {
-    private $MAX_STEPS = 200;
-    private $MAX_COEF_LOOPS = 200;
-    private $MAX_COEF = 50000;
+    const MAX_STEPS = 200;
+    const MAX_COEF_LOOPS = 200;
+    const MAX_COEF = 50000;
+    const STEPDELIM = "^#$%$#^";
     private $rxnts = NULL;
     private $prods = NULL;
     private $wksheet = NULL;
@@ -222,6 +226,20 @@ class Equation {
         }
     }
     
+    private static function fmtEorC($ps, $ecstr) {
+        $rv = " <span class='";
+        if (EqSide::isCompound($ecstr)) {
+            $rv .= "cpd_".$ecstr;
+        } else { 
+            $eclass = "eall_";
+            if ($ps == "R" ) $eclass = "erx_";
+            if ($ps == "P" ) $eclass = "epd_";
+            $rv .= $eclass.$ecstr;
+        }
+        $rv .= "'>".$ecstr."</span>";
+        return $rv;
+    }
+    
     private static function getHTMLList(&$strs) {
         $cur_lev = -1;
         $fmtted_strs = [];
@@ -233,6 +251,7 @@ class Equation {
                 $step_lev++;
             }
             $rawstr = trim($rawstr, "-");
+            $step_parts = explode(self::STEPDELIM, $rawstr);
             $lev_diff = $step_lev - $cur_lev;
             $cl_arg = ($cur_lev >= 0)?$cur_lev:0;
             if ($lev_diff == 1) {
@@ -246,7 +265,38 @@ class Equation {
                         "Indent diff should only be +/-1, not ".$lev_diff);
             }
             $curstr = $listchg.str_repeat("\t", $step_lev)."<li>";
-            $curstr .= $rawstr."</li>";
+            $step_body = $step_parts[0];
+            if (count($step_parts) > 1) {
+                $raweclist = explode("}", $step_parts[1]);
+                $ps = trim($raweclist[0], "{}");
+                $ecliststr = trim($raweclist[1]);
+                $elemscpds = explode(",", $ecliststr);
+                if (strpos($ecliststr, ":") === false) {
+                    // elements or compounds only
+                    foreach ($elemscpds as $cur_ec=>$rawec) {
+                        $ec = trim($rawec);
+                        $step_body = str_replace(" ".$ec, 
+                                self::fmtEorC($ps, $ec), $step_body, $rcnt);
+                        //echo "rcnt ", $rcnt, "<br>\n";
+                    }
+                } else {
+                    //compound:coefficient pairs
+                    //NYI support for multi-polyatomic ion compounds [e.g.,
+                    // (NH4)3PO4, (NH4)2CO3]
+                    foreach ($elemscpds as $cur_ec=>$rawec) {
+                        $compcoefpair = explode(":", $rawec);
+                        $cpdstr = trim($compcoefpair[0]);
+                        $coefstr = trim($compcoefpair[1]);
+                        $step_body = str_replace(" ".$cpdstr,
+                                self::fmtEorC($ps, $cpdstr), $step_body, $rcnt);
+                        $fmtcoef = "is <span class='coef_".$cpdstr."'>";
+                        $fmtcoef .= $coefstr."</span>";
+                        $step_body = str_replace("is ".$coefstr, $fmtcoef, 
+                                $step_body, $rcnt); 
+                    }
+                }
+            }
+            $curstr .= $step_body."</li>\n";
             $fmtted_strs[$i] = $curstr;
         }
         return $fmtted_strs;
@@ -273,7 +323,10 @@ class Equation {
     
     public function getSteps($ret_type="html") {
         if (strtolower($ret_type) != "html") {
-            return $this->steps;
+            foreach ($this->steps as $i=>$rs) {
+                $tmpsteps[$i] = substr($rs, 0, strpos($rs, self::STEPDELIM));
+            }
+            return $tmpsteps;
         }
         return Equation::getHTMLList($this->steps);
     }
@@ -298,8 +351,19 @@ class Equation {
         return NULL;
     }
 
-    public function getWorksheet() {
-        return $this->wksheet;
+    public function getWorksheet($ret_type="html") {
+        if (strtolower($ret_type) != "html") {
+            return $this->wksheet;
+        }
+        $wks[0] = "<table>\n\t<tr class='tbl_header'><td>Element</td>";
+        $wks[0] .= "<td>Reactants</td><td>Products</td></tr>\n";
+        foreach ($this->wksheet as $elem => $cnts) {
+            $cur_row = "\t<tr><td>".$elem."</td><td class='num'>".$cnts[0];
+            $cur_row .= "</td><td class='num'>".$cnts[1]."</td></tr>\n";
+            $wks[count($wks)] = $cur_row;
+        }
+        $wks[count($wks)] .= "</table>";
+        return $wks;
     }
 
     private function isBalanced() {
@@ -440,6 +504,7 @@ class Equation {
             $cur_step_elems = substr($cur_step_elems, 0,
                     strlen($cur_step_elems) - 2)." ";
             $cur_step .= $cur_step_elems."for next balancing step.";
+            $cur_step .= self::STEPDELIM . "{A}" . $cur_step_elems;
             $this->logStep($cur_step);
         }
         if (count($possible_elems) < 1) {
@@ -479,6 +544,7 @@ class Equation {
             }
             $cur_step = "Other elements are balanced. Consider compounds ";
             $cur_step .= "with element ".array_keys($possible_elems)[0].".";
+            $cur_step .= self::STEPDELIM . "{A}". array_keys($possible_elems)[0];
             $this->logStep($cur_step);
         }
             
@@ -639,9 +705,11 @@ class Equation {
         }
         foreach ( $cpdarr as $cpd => $coef ) {
             if ($ps == "reactant") {
-                $this->rxnts->changeCoefficient ( $cpd, $coef, $fulleq, $isdiff );
+                $this->rxnts->changeCoefficient($ps, $cpd, $coef, $fulleq, 
+                        $isdiff);
             } else {
-                $this->prods->changeCoefficient ( $cpd, $coef, $fulleq, $isdiff );
+                $this->prods->changeCoefficient($ps, $cpd, $coef, $fulleq, 
+                        $isdiff);
             }
         }
         unset($cpdarr);
@@ -660,6 +728,7 @@ class Equation {
     }
 
     private function tryEvenMultiples(&$candidate_cpds, $elem, $cd, $ps_str) {
+        $psprefix = "{".strtoupper($ps_str[0])."}";
         $cur_step = "Inspect ".$ps_str."s to see if compounds with ";
         $cur_step .= $elem." can be adjusted to balance ".$elem;
         $this->logStep($cur_step);
@@ -678,15 +747,18 @@ class Equation {
             }
         }
         if ($elem_cnt > 0) {
+            $prprefix = "{".strtoupper($ps_str[0])."}";
             $cur_step = "Check if the total ".$elem." count on ".$ps_str." ";
-            $cur_step .= "side is a >1 factor of ".$count_diff.", the ";
+            $cur_step .= "side is a >1 factor of ".$cd.", the ";
             $cur_step .= "difference in ".$elem;
+            $cur_step .= self::STEPDELIM . $prprefix . $elem;
             $this->logStep($cur_step, 1);
             if ($cd % $elem_cnt == 0) {
                 $coef_diff = $cd / $elem_cnt;
                 $cur_step = $cd." is exactly ".$coef_diff." times ";
                 $cur_step .= "larger than the ".$ps_str." ".$elem." ";
                 $cur_step .= "count, ".$elem_cnt;
+                $cur_step .= self::STEPDELIM . $prprefix . $elem;
                 $this->logStep($cur_step);
                 $cur_step = "Increase coefficients by ".$coef_diff;
                 $this->logStep($cur_step);
@@ -709,7 +781,7 @@ class Equation {
         $prcount = $this->wksheet[$elem][1];
         if ($first_balance) {
             $lcm = lcm($rxcount, $prcount);
-            if ($lcm > $this->MAX_COEF) {
+            if ($lcm > self::MAX_COEF) {
                 $this->logHardStep();
                 return false;
             }
@@ -718,15 +790,19 @@ class Equation {
             if ($rxcoef > 1) {
                 $cur_step = "Try to balance ".$elem."'s by multiplying ";
                 $cur_step .= "reactants' coefficients by ".$rxcoef;
+                $cur_step .= self::STEPDELIM . "{R}" . $elem;
                 $this->logStep($cur_step);
-                $this->rxnts->changeCoefficient($elem, $rxcoef, $this);
+                $this->rxnts->changeCoefficient("reactant", $elem, $rxcoef, 
+                        $this);
                 $this->applyWorksheetChanges("reactant");
             }
             if ($prcoef > 1) {
                 $cur_step = "Try to balance ".$elem."'s by multiplying ";
                 $cur_step .= "products' coefficients by ".$prcoef;
+                $cur_step .= self::STEPDELIM ."{P}" . $elem;
                 $this->logStep($cur_step);
-                $this->prods->changeCoefficient($elem, $prcoef, $this);
+                $this->prods->changeCoefficient("product", $elem, $prcoef, 
+                        $this);
                 $this->applyWorksheetChanges("product");
             }
             return true;
@@ -735,6 +811,7 @@ class Equation {
         $count_diff = abs($rxcount - $prcount);
         $cur_step = "Find difference in product count and reaction count ";
         $cur_step .= "of ".$elem.". It is ".$count_diff;
+        $cur_step .= self::STEPDELIM ."{A}" . $elem;
         $this->logStep($cur_step);
         $only_elem_cpds =
             $this->findCompoundsOnlyWithElem($elem);
@@ -745,19 +822,22 @@ class Equation {
             $ps_str = "reactant";
         }
         
+        $psprefix = "{".strtoupper($ps_str[0])."}";
         $cur_step = "Check compounds only with ".$elem;
+        $cur_step .= self::STEPDELIM . $psprefix . $elem;
         $this->logStep($cur_step);
         $this->incIndent();
         if ($this->tryEvenMultiples($prefside, $elem, $count_diff, 
                 $ps_str)) return true;
         $cur_step = "Total ".$elem." count is not a factor of difference.";
+        $cur_step .= self::STEPDELIM . $psprefix . $elem;
         $this->logStep($cur_step);
         $this->decIndent();
         // initialize defender-challenger worksheets with largest
         // imbalance possible
         $wks1 = $this->wksheet;
         foreach ($wks1 as $e=>$cnts) {
-            $wks1[$e] = [32767, 0];
+            $wks1[$e] = [PHP_INT_MAX, 0];
         }
         $wks2 = $wks1;
         $cpds_to_change = [];
@@ -767,6 +847,7 @@ class Equation {
                     $count_diff, $ps_str);
             $cur_step = "Check compounds with ".$elem." and one or more ";
             $cur_step .= "other elememnts";
+            $cur_step .= self::STEPDELIM . $psprefix . $elem;
             $this->logStep($cur_step);
         }
         if (count($cpds_w_factor_cnts) > 1) {
@@ -785,6 +866,8 @@ class Equation {
                 if ($foundNewBalanced) {
                     $cur_step = $step_st." using ".$cpd.", which has a ".$elem;
                     $cur_step .= " count that is a factor of difference";
+                    $cur_step .= self::STEPDELIM .$psprefix;
+                    $cur_step .= $elem . "," . $cpd;
                     $this->logStep($cur_step);
                     $wks1 = $wks2;
                     $coef_is_diff = false;
@@ -817,7 +900,7 @@ class Equation {
                     $coef_2++;
                     $coef_1 = ($count_diff - $ac2 * $coef_2)/$ac1;
                 }
-                if (count($coefs_to_try) > $this->MAX_COEF_LOOPS) {
+                if (count($coefs_to_try) > self::MAX_COEF_LOOPS) {
                     $this->logHardStep();
                     return false;
                 }
@@ -841,6 +924,7 @@ class Equation {
                         $cur_step .= $elem." compounds such that their ";
                         $cur_step .= "atom count sum is a factor of ";
                         $cur_step .= "the difference";
+                        $cur_step .= self::STEPDELIM .$psprefix . $elem;
                         $this->logStep($cur_step);
                         unset($cpds_to_change);
                         $cpds_to_change[$cpd1] = $coefs[0];
@@ -865,7 +949,7 @@ class Equation {
         if (count($this->cpds_by_elem[$elem][$ps_index]) == 1) {
             $cur_cpd = $this->cpds_by_elem[$elem][$ps_index][0];
             $lcm = lcm($rxcount, $prcount);
-            if ($lcm > $this->MAX_COEF) {
+            if ($lcm > self::MAX_COEF) {
                 $this->logHardStep();
                 return false;
             }
@@ -875,16 +959,20 @@ class Equation {
                 $rxcoef = $lcm / $rxcpds[$cur_cpd][$elem];
                 $cur_step = "Try to balance ".$elem."'s by multiplying ";
                 $cur_step .= "reactants' coefficients by ".$rxcoef;
+                $cur_step .= self::STEPDELIM .$psprefix . $elem;
                 $this->logStep($cur_step);
-                $this->rxnts->changeCoefficient($elem, $rxcoef, $this);
+                $this->rxnts->changeCoefficient($ps_str, $elem, $rxcoef, 
+                        $this);
                 $this->applyWorksheetChanges("reactant");
             }
             if ($ps_str == "product") {
                 $prcoef = $lcm / $prcpds[$cur_cpd][$elem];
                 $cur_step = "Try to balance ".$elem."'s by multiplying ";
                 $cur_step .= "products' coefficients by ".$prcoef;
+                $cur_step .= self::STEPDELIM .$psprefix . $elem;
                 $this->logStep($cur_step);
-                $this->prods->changeCoefficient($elem, $prcoef, $this);
+                $this->prods->changeCoefficient($ps_str, $elem, $prcoef, 
+                        $this);
                 $this->applyWorksheetChanges("product");
             }
             return true;
@@ -932,10 +1020,12 @@ class Equation {
         
         $empty = [];
         foreach ($this->rxnts->getCompoundList() as $cpd=>$elems) {
-            $this->rxnts->changeCoefficient($cpd, $low_coefs[$cpd], $empty);
+            $this->rxnts->changeCoefficient("reactant", $cpd, 
+                    $low_coefs[$cpd], $empty);
         }
         foreach ($this->prods->getCompoundList() as $cpd=>$elems) {
-            $this->prods->changeCoefficient($cpd, $low_coefs[$cpd], $empty);
+            $this->prods->changeCoefficient("product", $cpd, 
+                    $low_coefs[$cpd], $empty);
         }
         $this->applyWorksheetChanges("reactant");
         $this->applyWorksheetChanges("product");
@@ -975,11 +1065,11 @@ class Equation {
             return;
         }
         $cur_elem = $this->findElemToBalance();
-        $balanceable = count($this->steps) < $this->MAX_STEPS &&
+        $balanceable = count($this->steps) < self::MAX_STEPS &&
                 $this->updateWorksheet($cur_elem, true);
         while ($balanceable && !$this->isBalanced()) {
             $cur_elem = $this->findElemToBalance();
-            $balanceable = count($this->steps) < $this->MAX_STEPS &&
+            $balanceable = count($this->steps) < self::MAX_STEPS &&
                     $this->updateWorksheet($cur_elem);
         }
         if (!$balanceable) {
@@ -989,7 +1079,7 @@ class Equation {
                 $cur_step = "** ".$raw_last_step;
             } else {
                 $cur_step = "** # of steps exceeds max steps allowed (";
-                $cur_step .= $this->MAX_STEPS.")";
+                $cur_step .= self::MAX_STEPS.")";
             } 
             array_unshift($this->steps, $cur_step);
         } else {

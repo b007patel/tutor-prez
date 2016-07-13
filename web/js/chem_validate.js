@@ -7,6 +7,7 @@ var nwstrim, nwstrimleft, nwstrimright;
 // no good way of defining static members of classes. Use module globals
 // instead
 var cur_rxn, last_rxn;
+var rxntxt = document.getElementById("reaction");
 
 class ChemRxnSide {
     // Assumed instr already starts with a capital
@@ -278,7 +279,8 @@ class ChemRxnSide {
         if (this.comps == null) {
             // need closing ] and } to make sure string is not truncated
             // when toJSON() ancestor code runs
-            rv = "--BAD--" + $("input#reaction").val() + "]]}";
+            rxntxt = document.getElementById("reaction");
+            rv = "--BAD--" + rxntxt.value + "]]}";
             return rv;
         };
         for (var cpd of this.comps.keys()) {
@@ -314,7 +316,7 @@ class ChemRxn {
         //console.log("xhr:", xhr);
         xhr.onloadend = function () {
             document.body.innerHTML = xhr.responseText;
-            $("input#reaction").val(last_rxn);
+            rxntxt.value = last_rxn;
         };
     };
 

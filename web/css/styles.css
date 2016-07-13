@@ -64,6 +64,19 @@ div.row {
 	margin-left: 10px;
 }
 
+tr.tbl_header {
+	font-weight: bold;
+	background-color: lightgrey;
+}
+
+td {
+	padding-right: 10px;
+}
+
+td.num {
+	text-align: right;
+}
+
 .js .footer {
 	display: inherit;
 }

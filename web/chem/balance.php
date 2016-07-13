@@ -56,14 +56,38 @@ if ($eqn != NULL) {
         $eqn->balance();
         echo <<<"TMP"
 		</div>
+
+TMP;
+		$steplist = $eqn->getSteps();
+        // 9 = strlen("<ul>\n<li>")
+        $too_many_steps = substr(trim($steplist[0]), 9, 2) == "**";
+        if ($too_many_steps) { 
+            // because the first step is omitted (no need to repeat the
+            // "too hard to balance..." msg) insert a <ul> tag manually
+            echo <<<"TMP"
+
+		<div id="extra_steps" class="bdrtop" style="display: none;">
+			Unabridged steps in balancing:<br>
+			=============<br>
+			<ul>
+TMP;
+            for ($i = 1; $i < count($steplist); $i++) {
+                echo <<<"TMP"
+			$steplist[$i]
+TMP;
+
+            }
+        } else {
+            echo "\t\t<div id='rxn_bal' class='bdrtop'>\n";
+            $eqn->showReaction("Balanced reaction");
+        }
+        echo <<<"TMP"
+		</div>
 		<div id="rxn_steps" class="bdrtop">
 			Steps in balancing:<br>
 			=============<br>
 
 TMP;
-        $steplist = $eqn->getSteps();
-        // 9 = strlen("<ul>\n<li>")
-        $too_many_steps = substr(trim($steplist[0]), 9, 2) == "**";
         if (!$too_many_steps) { 
             foreach ($eqn->getSteps() as $bal_step) {
                 echo <<<"TMP"
@@ -83,36 +107,13 @@ TMP;
 			====final worksheet====<br>
 
 TMP;
-        foreach ($eqn->getWorksheet() as $elem => $cnts) {
+        foreach ($eqn->getWorksheet() as $i => $wkrow) {
             echo <<<"TMP"
-			<pre>$elem\t$cnts[0]\t$cnts[1]</pre>
+			$wkrow
 
 TMP;
         }
         echo "</div>\n\t\t<br>";
-        if ($too_many_steps) { 
-            // because the first step is omitted (no need to repeat the
-            // "too hard to balance..." msg) insert a <ul> tag manually
-            echo <<<"TMP"
-
-		<div id="extra_steps" class="bdrtop" style="display: none;">
-			Unabridged steps in balancing:<br>
-			=============<br>
-			<ul>
-
-TMP;
-            for ($i = 1; $i < count($steplist); $i++) {
-                echo <<<"TMP"
-			$steplist[$i]
-
-TMP;
-            }
-           echo "\t\t</div>\n";
-        } else {
-            echo "\t\t<div id='rxn_bal' class='bdrtop'>\n";
-            $eqn->showReaction("Balanced reaction");
-            echo "\t\t</div>\n";
-        }
     }
 }
 
