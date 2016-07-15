@@ -58,7 +58,7 @@ if ($eqn != NULL) {
 		</div>
 
 TMP;
-		$steplist = $eqn->getSteps();
+        $steplist = $eqn->getSteps();
         // 9 = strlen("<ul>\n<li>")
         $too_many_steps = substr(trim($steplist[0]), 9, 2) == "**";
         if ($too_many_steps) { 
@@ -75,7 +75,6 @@ TMP;
                 echo <<<"TMP"
 			$steplist[$i]
 TMP;
-
             }
         } else {
             echo "\t\t<div id='rxn_bal' class='bdrtop'>\n";
@@ -89,7 +88,7 @@ TMP;
 
 TMP;
         if (!$too_many_steps) { 
-            foreach ($eqn->getSteps() as $bal_step) {
+            foreach ($steplist as $bal_step) {
                 echo <<<"TMP"
 			$bal_step
 
@@ -129,4 +128,5 @@ $custom_scripts = <<<'CSP'
 <script src="../js/chem_validate.js"></script>
 
 CSP;
+Equation::closeDbgFile();
 include "../php/html-end-tmpl.php";

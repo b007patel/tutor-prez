@@ -163,7 +163,7 @@ class Equation {
     private $last_bal_elem = "";
     
     function __construct($instr){
-        Equation::openDbgFile($_SERVER["DOCUMENT_ROOT"]."/php/dbg_out.txt");
+        self::openDbgFile($_SERVER["DOCUMENT_ROOT"]."/php/dbg_out.txt");
         $this->raw_json = $instr;
         $pos_of_bad = strpos($instr, "--BAD--");
         $warning_given = strpos($instr, "WARNING") > 0; 
@@ -226,24 +226,44 @@ class Equation {
         }
     }
     
-    private static function fmtEorC($ps, $ecstr) {
+    private static function fmtEorC($ps, $ecstr, $closespan=true) {
         $rv = " <span class='";
-        if (EqSide::isCompound($ecstr)) {
-            $rv .= "cpd_".$ecstr;
+        $textval = $ecstr;
+        // need to expressly state $ecstr is a compound when formatting a
+        // reaction, since some compounds may be monoatomic elemental 
+        // allotropes (e.g., Zn metal, Fe metal)
+        $comp_or_coef = $ps == "compound";
+        $coef_given = ((strlen($ps) > 1) && 
+                (strtoupper(substr($ps, 0, 2)) == "C:"));
+        $comp_or_coef = $comp_or_coef || $coef_given;
+        if (!$comp_or_coef) {
+            $comp_or_coef = EqSide::isCompound($ecstr); 
+        }
+        if ($comp_or_coef) {
+            $newec = str_replace("(", "-", $ecstr);
+            $newec = str_replace(")", "-", $newec);
+            $cpdclassprefix = "cpd_";
+            if ($coef_given) {
+                $cpdclassprefix = "coef_";
+                $textval = substr($ps, 2);
+            }
+            $rv .= $cpdclassprefix.$newec;
         } else { 
             $eclass = "eall_";
             if ($ps == "R" ) $eclass = "erx_";
             if ($ps == "P" ) $eclass = "epd_";
             $rv .= $eclass.$ecstr;
         }
-        $rv .= "'>".$ecstr."</span>";
+        $rv .= "'>";
+        if ($closespan) $rv .= $textval."</span>";
         return $rv;
     }
     
     private static function getHTMLList(&$strs) {
         $cur_lev = -1;
         $fmtted_strs = [];
-        for ($i=0; $i < count($strs); $i++) {
+        $s_count = count($strs);
+        for ($i=0; $i < $s_count; $i++) {
             $rawstr = $strs[$i];
             $step_lev = 0;
             $listchg = "";
@@ -261,8 +281,17 @@ class Equation {
                 $listchg = str_repeat("\t", $cl_arg)."</ul>\n";
                 $cur_lev = $step_lev;
             } else if ($lev_diff != 0) {
-                Equation::dbgOut(
-                        "Indent diff should only be +/-1, not ".$lev_diff);
+                // if this is the last step, make it a top level step
+                if ($i == ($s_count - 1)) {
+                    $cl_lim = abs($step_lev - $cur_lev);
+                    for ($close_lev=$cl_lim; $close_lev > 0; $close_lev--) {
+                        $listchg .= str_repeat("\t", $close_lev)."</ul>\n";        
+                    }
+                    $cur_lev = 0;
+                } else {
+                    self::dbgOut(
+                            "Indent diff should only be +/-1, not ".$lev_diff);
+                }
             }
             $curstr = $listchg.str_repeat("\t", $step_lev)."<li>";
             $step_body = $step_parts[0];
@@ -277,20 +306,16 @@ class Equation {
                         $ec = trim($rawec);
                         $step_body = str_replace(" ".$ec, 
                                 self::fmtEorC($ps, $ec), $step_body, $rcnt);
-                        //echo "rcnt ", $rcnt, "<br>\n";
                     }
                 } else {
                     //compound:coefficient pairs
-                    //NYI support for multi-polyatomic ion compounds [e.g.,
-                    // (NH4)3PO4, (NH4)2CO3]
                     foreach ($elemscpds as $cur_ec=>$rawec) {
                         $compcoefpair = explode(":", $rawec);
                         $cpdstr = trim($compcoefpair[0]);
                         $coefstr = trim($compcoefpair[1]);
                         $step_body = str_replace(" ".$cpdstr,
                                 self::fmtEorC($ps, $cpdstr), $step_body, $rcnt);
-                        $fmtcoef = "is <span class='coef_".$cpdstr."'>";
-                        $fmtcoef .= $coefstr."</span>";
+                        $fmtcoef = "is ".self::fmtEorC("c:".$coefstr, $cpdstr);
                         $step_body = str_replace("is ".$coefstr, $fmtcoef, 
                                 $step_body, $rcnt); 
                     }
@@ -318,7 +343,7 @@ class Equation {
         if (strtolower($ret_type) != "html") {
             return $this->errors;
         }
-        return Equation::getHTMLList($this->errors);
+        return self::getHTMLList($this->errors);
     }
     
     public function getSteps($ret_type="html") {
@@ -328,7 +353,7 @@ class Equation {
             }
             return $tmpsteps;
         }
-        return Equation::getHTMLList($this->steps);
+        return self::getHTMLList($this->steps);
     }
     
     public function getReactants() {
@@ -403,22 +428,22 @@ class Equation {
         $this->logStep($cur_step);
     }
     
-    private static function openDbgFile($dbgfname) {
-        Equation::$dbgfile = fopen($dbgfname,"w");
+    public static function openDbgFile($dbgfname) {
+        self::$dbgfile = fopen($dbgfname,"w");
     }
     
-    private static function closeDbgFile() {
-        fclose(Equation::$dbgfile);
+    public static function closeDbgFile() {
+        if (self::$dbgfile != NULL) fclose(self::$dbgfile);
     }
     
     private static function rawDbgWrite($instr) {
-        fwrite(Equation::$dbgfile, $instr);
+        fwrite(self::$dbgfile, $instr);
     }
     
     private static function dbgOut($instr, $in_arr="junk") {
         if (!is_array($in_arr)) {
-            echo $instr, "<br>";
-            Equation::rawDbgWrite($instr."\n");
+            echo htmlspecialchars($instr), "<br>";
+            self::rawDbgWrite($instr."\n");
             return;
         }
         
@@ -427,7 +452,7 @@ class Equation {
         $outstr .= print_r($in_arr, true);
         if (count($tmparr) > 1) $outstr .= $tmparr[1];
         echo $outstr, "<br>";
-        Equation::rawDbgWrite($outstr."\n");
+        self::rawDbgWrite($outstr."\n");
     }
     
     private function getOKElems(&$pe, $OH, $condition) {
@@ -1032,32 +1057,173 @@ class Equation {
         return $cf;
     }
 
-    private function formatCompound($cpd) {
-        $val_0 = ord("0");
-        $substart = "<sub>";
-        $subend = "</sub>";
-        $printsub = false;
-        $rv = "";
+    private static function splitElement(&$estr) {
+        $did_split = false;
+        if (($dpos = strpos($estr, "|")) !== false) {
+            $did_split = true;
+            $estr = explode("|", $estr)[1];
+        }
+        return $did_split;
+    }
+    
+    //NYI - try to clean up this method's code. On July 15, 2016 it was 
+    // ~150 lines long
+    // - decide on how to handle ()'s enclosing PA ions. Should they be in a
+    //   separate span? If so, what would that span's class be? If not, then
+    //   how to handle ()'s that are not part of a span? 
+    private function formatCompound($ps, $cpd) {
+        $val_0 = ord("0"); $val_bA = ord("A"); $val_La = ord("a");
+        $substart = "<sub>"; $subend = "</sub>";
+        $printsub = false; $haveelem = false; $elemopen = false;
+        $rb_found = false;
+        $eprefix = "<span class='eall_# ".($ps == "reactant")?"erx_#":"epd_#";
+        $eprefix .= "'>";
+        $eend = "&^&</span>";
+        $eendlen = strlen($eend);
+        $fmtcpd = ""; $subout = ""; $cur_elstr = "";
         
         for ($i=0; $i < strlen($cpd); $i++) {
-            $cur_dig = ord($cpd[$i]) - $val_0;
+            $cur_ord = ord($cpd[$i]);
+            $cur_dig = $cur_ord - $val_0;
+            $is_upper = $cur_ord >= $val_bA && $cur_ord <= ($val_bA + 25);
+            $is_lower = $cur_ord >= $val_La;
+            if ($i > 1) {
+                $rb_found = $cpd[$i-1] == ")"; 
+            }
             if ($printsub) {
                 if ($cur_dig < 0 || $cur_dig > 9) {
-                    $rv .= $subend;
-                    $printsub = false;
+                    $subout .= $subend;
+                    $fmtcpd = str_replace("&^&", $subout, $fmtcpd);
+                    $fmtcpd = str_replace("#", $cur_elstr, $fmtcpd);
+                    $subout = ""; $printsub = false;
                 }
             } else {
                 if ($cur_dig >= 0 && $cur_dig <= 9) {
-                    $rv .= $substart;
-                    $printsub = true;
+                    $printsub = true; $subout .= $substart;
+                    // if the second element in a pair has a one-letter symbol
+                    if (strpos($cur_elstr, "|") !== false) {
+                        $cur_elstr = explode("|", $cur_elstr)[1];
+                    }
+                    $elemopen = (substr($fmtcpd, strlen($fmtcpd) - $eendlen, 3) != "&^&");
                 }
             }
-            $rv .= $cpd[$i];
+            // special case, if a bracketed ion ends with a single one-letter
+            // atom
+            if ($cpd[$i] == ")") {
+                $ordb4rb = ord($cpd[$i-1]) - $val_bA;
+                if ($ordb4rb >= 0 && $ordb4rb <= 25) {
+                    $fmtcpd .= "</span>";
+                    if (strlen($cur_elstr) > 0) {
+                        self::splitElement($cur_elstr);
+                        $fmtcpd = str_replace("#", $cur_elstr, $fmtcpd);
+                    }
+                }
+            }
+            if ($is_upper) {
+                if (!$haveelem) {
+                    // special case, if there are 3 consecutive one-letter
+                    // elements - not yet tested with 4 or more
+                    if (self::splitElement($cur_elstr)) {
+                        $fmtcpd = str_replace("#", $cur_elstr, $fmtcpd);
+                        $fmtcpd .= $eend;
+                    }
+                    $fmtcpd = str_replace("&^&", $subout, $fmtcpd);
+                    $cur_elstr = $cpd[$i];
+                    $fmtcpd .= $eprefix;
+                    $haveelem = true;
+                } else {
+                    $fmtcpd = str_replace("#", $cur_elstr, $fmtcpd);
+                    $haveelem = false;
+                    if (substr($fmtcpd, strlen($fmtcpd) - 7) == "</span>") {
+                        $fmtcpd .= $eprefix;
+                    } else $fmtcpd .= $eend.$eprefix;
+                    $cur_elstr .= "|".$cpd[$i];
+                    $elemopen = false;
+                }
+            }
+            if ($is_lower) {
+                $cur_elstr .= $cpd[$i]."-";
+                self::splitElement($cur_elstr);
+                $elemopen = (substr($fmtcpd, strlen($fmtcpd) - $eendlen, 3) != "&^&");
+                $haveelem = false;
+            }
+            if (!$printsub) {
+                $fmtcpd .= $cpd[$i];
+                // check for a "-", which expressly ends an element string
+                if (($dpos = strpos($cur_elstr, "-")) !== false) {
+                    $cur_elstr = trim($cur_elstr, "-");
+                    self::splitElement($cur_elstr);
+                    $fmtcpd = str_replace("#", $cur_elstr, $fmtcpd);
+                    $cur_elstr = "";
+                }
+            } else $subout .= $cpd[$i];
+            if ($elemopen) {
+                $fmtcpd = str_replace("&^&", "", $fmtcpd);
+                if (substr($fmtcpd, strlen($fmtcpd) - 7) == "</span>") {
+                    echo "warning generic elemopen adding an extra /span!!<br>\n";
+                    echo "==>raw html: ", htmlspecialchars($fmtcpd), "<br>\n";
+                }
+                $e_rbend = $eend;
+                if (($rb_found) && 
+                        (substr($fmtcpd, strlen($fmtcpd) - $eendlen)
+                                 != $eend)) {
+                    // special case: if subscript is for a polyatomic ion,  
+                    // then current span must continue
+                    $e_rbend = str_replace("</span>", "", $e_rbend);
+                    $cur_elstr = "";
+                }
+                $fmtcpd .= $e_rbend;
+                $haveelem = false; $elemopen = false;
+            }                
         }
+        
         if ($printsub) {
-            $rv .= $subend;
+            $elemopen = 
+                    (substr($fmtcpd, strlen($fmtcpd) - $eendlen, 3) != "&^&");
+            if ($elemopen) {
+                $fmtcpd = str_replace("&^&", $subout, $fmtcpd);
+                if (!$rb_found) {
+                    // strlen("<sub>#") is 6, where '#' is any digit 1-9
+                    if (strlen($subout) > 6) $subout .= $subend;
+                    else $fmtcpd .= $eend;
+                }
+            } else $subout .= $subend;
+            $fmtcpd = str_replace("&^&", $subout, $fmtcpd);
+            $subout = ""; $printsub = false;
         }
-        return $rv;
+        // boundary case, change any unchanged '#' classes
+        if (strlen($cur_elstr) > 0) {
+            // check if last element has a one letter symbol. If it does, 
+            // confirm that there are eall_<cur_elstr> classes given
+            $ch0 = $cur_elstr[0]; $lch0 = strtolower($ch0);
+            $onecap_elem_left = strlen($cur_elstr) == 1;
+            $onecap_elem_left = $onecap_elem_left && $ch0 != $lch0;
+            if (!$onecap_elem_left) {
+                $onecap_elem_left = self::splitElement($cur_elstr);
+            }
+            if ($onecap_elem_left) {
+                $have_classes = false;
+                if (($eclass_pos = strrpos($fmtcpd, "eall_#")) !== false) {
+                    $have_classes = true;
+                }
+                
+                if (!$have_classes) {
+                    $fmtcpd  = str_replace($cur_elstr.$substart, 
+                            $eprefix.$cur_elstr.$substart, $fmtcpd);
+                }
+            }
+            $fmtcpd = str_replace("#", $cur_elstr, $fmtcpd);
+        }
+        
+        // remove any unused subscript placeholders for single atoms
+        $fmtcpd = str_replace("&^&", $subout, $fmtcpd);
+        
+        // if for some reason the last span is open, close it. Usually 
+        // only if the "&^&" delimiter absent
+        if (substr($fmtcpd, strlen($fmtcpd) - 7) != "</span>") {
+            $fmtcpd .= "</span>";
+        }
+        return $fmtcpd;
     }
     
     public function balance() {
@@ -1094,12 +1260,11 @@ class Equation {
             }
         }
         // debug - output all steps to debug file
-        Equation::rawDbgWrite("DEBUG list all steps\n");
-        Equation::rawDbgWrite("=======".count($this->steps)."=========\n");
+        self::rawDbgWrite("DEBUG list all steps\n");
+        self::rawDbgWrite("=======".count($this->steps)."=========\n");
         for ($i=0;$i < count($this->steps); $i++) {
-            Equation::rawDbgWrite($this->steps[$i]."\n");
+            self::rawDbgWrite($this->steps[$i]."\n");
         }
-        Equation::closeDbgFile();
     }
     
     public function showReaction($header) {
@@ -1173,21 +1338,21 @@ class Equation {
         }
         $outstr = $fontsize;
         foreach ($this->rxnts->getCompoundList() as $cpd=>$elems) {
-            $cpdstr = "";
+            $cpdstr = self::fmtEorC("compound", $cpd, false);
             if ($elems["#"] > 1) {
-               $cpdstr .= $elems["#"];
+               $cpdstr .= self::fmtEorC("c:".$elems["#"], $cpd);
             }
-            $cpdstr .= $this->formatCompound($cpd)." + ";
+            $cpdstr .= $this->formatCompound("reactant", $cpd)."</span> + ";
             $outstr .= $cpdstr;
         }
         $outstr = rtrim($outstr, " +");
         $outstr .= " ==> ";
         foreach ($this->prods->getCompoundList() as $cpd=>$elems) {
-            $cpdstr = "";
+            $cpdstr = self::fmtEorC("compound", $cpd, false);
             if ($elems["#"] > 1) {
-                $cpdstr .= $elems["#"];
+               $cpdstr .= self::fmtEorC("c:".$elems["#"], $cpd);
             }
-            $cpdstr .= $this->formatCompound($cpd)." + ";
+            $cpdstr .= $this->formatCompound("product", $cpd)."</span> + ";
             $outstr .= $cpdstr;
         }
         $outstr = rtrim($outstr, " +");
@@ -1198,15 +1363,15 @@ class Equation {
 
     public function dumpWS(&$ws, $header) {
         echo "<pre>", $header, "\n";
-        Equation::rawDbgWrite($header."\n");
+        self::rawDbgWrite($header."\n");
         echo "Element,R,P\n";    
-        Equation::rawDbgWrite("Element,R,P\n");    
+        self::rawDbgWrite("Element,R,P\n");    
         foreach ($ws as $elem=>$cnts) {
             echo $elem, ", ", $cnts[0], ", ", $cnts[1], "\n";
-            Equation::rawDbgWrite($elem.", ".$cnts[0].", ".$cnts[1]."\n");
+            self::rawDbgWrite($elem.", ".$cnts[0].", ".$cnts[1]."\n");
         }
         echo "</pre>";
-        Equation::rawDbgWrite("\n+++++++++++++".count($this->steps)."+++++++++++++\n");
+        self::rawDbgWrite("\n+++++++++++++".count($this->steps)."+++++++++++++\n");
     }
 
     public function debug_du_jour() {

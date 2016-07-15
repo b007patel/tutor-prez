@@ -2,6 +2,7 @@
 
 Important:
 - add CSS/JS display code
+--- design question: to span or not to span PA ion ()'s?
 ==========
 
 Regression:
