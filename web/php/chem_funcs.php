@@ -1076,7 +1076,8 @@ class Equation {
         $substart = "<sub>"; $subend = "</sub>";
         $printsub = false; $haveelem = false; $elemopen = false;
         $rb_found = false;
-        $eprefix = "<span class='eall_# ".($ps == "reactant")?"erx_#":"epd_#";
+        $eprefix = "<span class='eall_# ";
+        $eprefix .= ($ps == "reactant")?"erx_#":"epd_#";
         $eprefix .= "'>";
         $eend = "&^&</span>";
         $eendlen = strlen($eend);
