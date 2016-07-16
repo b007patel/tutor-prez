@@ -24,7 +24,7 @@ class EqSide {
     
         while ($i < $len && $is_an_elem) {
             $i++;
-            $curr_code = ord($instr[$i]);
+            $curr_code = ord(substr($instr, $i, 1));
             $is_an_elem = ($curr_code < $zero || $curr_code > $nine);
         }
         if ($is_an_elem) {
@@ -32,7 +32,9 @@ class EqSide {
             // Symbols such as c or cd or cD unacceptable
             $is_an_elem = $len <= 2;
             if ($is_an_elem) $is_an_elem = $instr[0] <= "Z";
-            if ($is_an_elem && $len > 1) $is_an_elem = $instr[1] >= "a";
+            if ($is_an_elem && $len > 1) {
+                $is_an_elem = substr($instr, 1, 1) >= "a";
+            }
         }
         return !$is_an_elem;
     }
@@ -40,7 +42,7 @@ class EqSide {
     private function start_worksheet(){
         $coef = 1;
         foreach ($this->comps as $cp => $elems) {
-            if ($this->wksheet == NULL) {
+            if (empty($this->wksheet) || $this->wksheet == NULL) {
                 foreach ($elems as $sym => $atm_cnt) {
                     if ($sym == "#") {
                         $coef = $atm_cnt;
@@ -172,16 +174,16 @@ class Equation {
         }
         $eqjson = json_decode($instr);
         $rawrxnts = $eqjson->rxnts;
-        if ($rawrxnts == NULL || $rawrxnts === undefined) {
+        if ($rawrxnts == NULL || empty($rawrxnts)) {
             $this->setErrorsFromJSON($instr, $pos_of_bad);
             return;
         }
         $this->rxnts = new EqSide($rawrxnts);
-        if ( $this->rxnts->getCompoundList() == NULL ) return;
+        if ($this->rxnts->getCompoundList() == NULL) return;
         $rawprods = $eqjson->prods;
-        if ($rawprods == NULL || $rawprods === undefined) return;
+        if ($rawprods == NULL || empty($rawprods)) return;
         $this->prods = new EqSide($rawprods);
-        if ( $this->prods->getCompoundList() == NULL ) return;
+        if ($this->prods->getCompoundList() == NULL) return;
         
         $rxwk = $this->rxnts->getWorksheet();
         $prwk = $this->prods->getWorksheet();
@@ -387,7 +389,7 @@ class Equation {
             $cur_row .= "</td><td class='num'>".$cnts[1]."</td></tr>\n";
             $wks[count($wks)] = $cur_row;
         }
-        $wks[count($wks)] .= "</table>";
+        $wks[count($wks)] = "</table>";
         return $wks;
     }
 
@@ -745,9 +747,16 @@ class Equation {
         if ($pside == "product") {
             $rawcpds = $this->prods->getCompoundList();
         }
+        $is_empty = empty($cpds);
         foreach ($rawcpds as $cur_cpd=>$elems) {
-            if ($elems[$elem] > 0 && $elems[$elem] <= $cd) {
-                $cpds[$cur_cpd] = $elems;
+            if ((array_key_exists($elem, $elems)) && ($elems[$elem] > 0) 
+                    && ($elems[$elem] <= $cd)) {
+                if ($is_empty) {
+                    $cpds = array($cur_cpd=>$elems);
+                    $is_empty = false;
+                } else {
+                    $cpds[$cur_cpd] = $elems;
+                }
             }
         }
     }
@@ -867,7 +876,7 @@ class Equation {
         $wks2 = $wks1;
         $cpds_to_change = [];
         $coef_is_diff = false;
-        if (count($cpds_w_factor_cnts) <= 0) {
+        if (empty($cpds_w_factor_cnts) || count($cpds_w_factor_cnts) <= 0) {
             $this->findCompoundsToTry($cpds_w_factor_cnts, $elem, 
                     $count_diff, $ps_str);
             $cur_step = "Check compounds with ".$elem." and one or more ";
@@ -1145,7 +1154,8 @@ class Equation {
             if ($is_lower) {
                 $cur_elstr .= $cpd[$i]."-";
                 self::splitElement($cur_elstr);
-                $elemopen = (substr($fmtcpd, strlen($fmtcpd) - $eendlen, 3) != "&^&");
+                $elemopen = (substr($fmtcpd, 
+                        strlen($fmtcpd) - $eendlen, 3) != "&^&");
                 $haveelem = false;
             }
             if (!$printsub) {
@@ -1179,8 +1189,8 @@ class Equation {
         }
         
         if ($printsub) {
-            $elemopen = 
-                    (substr($fmtcpd, strlen($fmtcpd) - $eendlen, 3) != "&^&");
+            $elemopen = (substr($fmtcpd, 
+                    strlen($fmtcpd) - $eendlen, 3) != "&^&");
             if ($elemopen) {
                 $fmtcpd = str_replace("&^&", $subout, $fmtcpd);
                 if (!$rb_found) {
@@ -1390,7 +1400,7 @@ class EqFactory {
     private $eqn;
     
     private function __construct() {
-        $created = true;
+        self::$created = true;
     }
     
     public function newEquation() {
@@ -1414,7 +1424,7 @@ class EqFactory {
     }
     
     public static function getInstance() {
-        if (!$created) $eqfactory = new EqFactory();
+        if (!self::$created) $eqfactory = new EqFactory();
         return $eqfactory;
     }
 }

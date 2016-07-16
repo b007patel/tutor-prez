@@ -60,6 +60,13 @@ a:hover {
     border-top: 2px solid blue;
 }
 
+button,
+html input[type="button"],
+input[type="reset"],
+input[type="submit"] {
+	color: black;
+}
+
 div.row {
 	margin-left: 10px;
 }
@@ -67,6 +74,7 @@ div.row {
 tr.tbl_header {
 	font-weight: bold;
 	background-color: lightgrey;
+	color:  black;
 }
 
 td {

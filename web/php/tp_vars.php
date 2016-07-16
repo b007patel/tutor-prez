@@ -16,11 +16,14 @@ function prime_factor($num) {
     $limit = (int)ceil(sqrt($num));
     $i = 0;
     $divisor = $primes[$i];
-    $rtval = NULL;
     while ($divisor <= $limit) {
         while ($dividend % $divisor == 0) {
             $dividend = $dividend / $divisor;
-            $rtval[$divisor] += 1;
+            if (empty($rtval[$divisor])) {
+                $rtval[$divisor] = 1;
+            } else {
+                $rtval[$divisor] += 1;
+            }
         }
         $i++;
         if ($i < $numprimes) {
@@ -31,9 +34,13 @@ function prime_factor($num) {
     }
     
     if ($dividend > 1 && $dividend < $num) {
-        $rtval[$dividend] += 1;
+        if (empty($rtval[$dividend])) {
+            $rtval[$dividend] = 1;
+        } else {
+            $rtval[$dividend] += 1;
+        }
     }
-    if ($rtval == NULL) {
+    if (empty($rtval) || $rtval == NULL) {
         $rtval[$num] = 1;
     }
     return $rtval;
