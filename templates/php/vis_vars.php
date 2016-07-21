@@ -11,7 +11,7 @@
 				$browser_info["version"] >= 49);
 		if (!$isChromeOrFF) {
 			$isChromeOrFF = (
-					$browser_info["browser"] == "FireFox" &&
+					$browser_info["browser"] == "Firefox" &&
 					$browser_info["version"] >= 45);
 		}
 	}
