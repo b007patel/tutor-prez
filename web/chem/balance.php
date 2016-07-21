@@ -124,9 +124,6 @@ echo <<<'EOT'
 	</div>
 EOT;
 //include "../php/footer-tmpl.php";
-$custom_scripts = <<<'CSP'
-<script src="../js/chem_validate.js"></script>
-
-CSP;
+$custom_scripts = "tp_common,chem_validate";
 Equation::closeDbgFile();
 include "../php/html-end-tmpl.php";

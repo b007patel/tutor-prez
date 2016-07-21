@@ -61,9 +61,7 @@ a:hover {
 }
 
 button,
-html input[type="button"],
-input[type="reset"],
-input[type="submit"] {
+html input {
 	color: black;
 }
 
@@ -74,7 +72,7 @@ div.row {
 tr.tbl_header {
 	font-weight: bold;
 	background-color: lightgrey;
-	color:  black;
+	color: black;
 }
 
 td {

@@ -172,15 +172,16 @@ class Equation {
         if ($pos_of_bad > 0 || $warning_given) {
             $this->setErrorsFromJSON($instr, $pos_of_bad);
         }
+
         $eqjson = json_decode($instr);
-        $rawrxnts = $eqjson->rxnts;
+        $rawrxnts = ($eqjson != NULL && !empty($eqjson))?$eqjson->rxnts:NULL;
         if ($rawrxnts == NULL || empty($rawrxnts)) {
             $this->setErrorsFromJSON($instr, $pos_of_bad);
             return;
         }
         $this->rxnts = new EqSide($rawrxnts);
         if ($this->rxnts->getCompoundList() == NULL) return;
-        $rawprods = $eqjson->prods;
+        $rawprods = ($eqjson != NULL && !empty($eqjson))?$eqjson->prods:NULL;
         if ($rawprods == NULL || empty($rawprods)) return;
         $this->prods = new EqSide($rawprods);
         if ($this->prods->getCompoundList() == NULL) return;
@@ -332,9 +333,9 @@ class Equation {
     private function setErrorsFromJSON($instr, $bpos) {
         $this->formattedRxn = ltrim(substr($instr, $bpos));
         $this->formattedRxn = rtrim($this->formattedRxn, "}]");
-        $rawerrs = ltrim(split("\"errstr\"", $instr)[1], ":\"'");
+        $rawerrs = ltrim(explode("\"errstr\"", $instr)[1], ":\"'");
         $rawerrs = substr($rawerrs, 0, strpos($rawerrs, '","') - 1);
-        $this->errors = split("~+", $rawerrs);
+        $this->errors = explode("~+", $rawerrs);
         foreach ($this->errors as $i=>$err) {
             $this->errors[$i] = trim($err, "~+ ")."\n";
             if (strlen($err) < 1) array_splice($this->errors, $i);
@@ -1288,8 +1289,8 @@ class Equation {
         // get reaction string from raw JSON string
         function formatRawJSONRxn($rawjson) {
             $raw_rxn = "";
-            $raw_cpds = split("rxnts", $rawjson);
-            $raw_cpds = split(": "."\[{", $raw_cpds[1]);
+            $raw_cpds = explode("rxnts", $rawjson);
+            $raw_cpds = explode(": "."\[{", $raw_cpds[1]);
             for ($i=0; $i < count($raw_cpds) - 1; $i ++) {
                 if (strpos($raw_cpds[$i], "prods") > 0) {
                     if (strrpos($raw_rxn, "+") === false) {
@@ -1298,11 +1299,11 @@ class Equation {
                         $raw_rxn[strrpos($raw_rxn, "+")] = "=";
                     }
                 }
-                $split1 = split(':\{"', $raw_cpds[$i]);
+                $split1 = explode(':\{"', $raw_cpds[$i]);
                 $cur_cpd = $split1[1];
                 if (strlen($cur_cpd) < 1) $cur_cpd = $split1[0];
                 if (strpos($cur_cpd, "], ") > 0) {
-                    $split2 = split("}\], ", $cur_cpd);
+                    $split2 = explode("}\], ", $cur_cpd);
                     $cur_cpd = $split2[1];
                 }
                 $raw_rxn .= trim($cur_cpd, '{[""]}')." + ";
