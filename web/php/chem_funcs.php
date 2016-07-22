@@ -226,6 +226,7 @@ class Equation {
                 $this->cpds_by_elem[$elem] =
                     [$rxcpds_by_elem[$elem], $prcpds_by_elem[$elem]]; 
             }
+            $this->formatReaction();
         }
     }
     
@@ -248,7 +249,11 @@ class Equation {
             $cpdclassprefix = "cpd_";
             if ($coef_given) {
                 $cpdclassprefix = "coef_";
-                $textval = substr($ps, 2);
+                if (strtoupper($ps) == "C:1") {
+                    $textval = "";
+                } else {
+                    $textval = substr($ps, 2);
+                }
             }
             $rv .= $cpdclassprefix.$newec;
         } else { 
@@ -935,39 +940,44 @@ class Equation {
                     $coef_2++;
                     $coef_1 = ($count_diff - $ac2 * $coef_2)/$ac1;
                 }
-                if (count($coefs_to_try) > self::MAX_COEF_LOOPS) {
-                    $this->logHardStep();
-                    return false;
-                }
-                foreach ($coefs_to_try as $i=>$coefs) {
-                    $this->changeCoefs($ps_str, $cpd1, $coefs[0], $empty, 
-                        true);
-                    $this->changeCoefs($ps_str, $cpd2, $coefs[1], $empty, 
-                        true);
-                    $this->applyWorksheetChanges($ps_str);
-                    $wks2 = $this->wksheet;
-                    // if there is an existing non-dummy defender, then
-                    // when a new defender is found re-balancing occurs
-                    $step_st = "Balance";
-                    if ($foundNewBalanced) $step_st = "Re-balance";
-                    $foundNewBalanced = 
-                            $this->compareWorksheets($wks1, $wks2, $elem);
-                    if ($foundNewBalanced) {
-                        $wks1 = $wks2;
-                        $coef_is_diff = true;
-                        $cur_step = $step_st." by changing coefficients of ";
-                        $cur_step .= $elem." compounds such that their ";
-                        $cur_step .= "atom count sum is a factor of ";
-                        $cur_step .= "the difference";
-                        $cur_step .= self::STEPDELIM .$psprefix . $elem;
-                        $this->logStep($cur_step);
-                        unset($cpds_to_change);
-                        $cpds_to_change[$cpd1] = $coefs[0];
-                        $cpds_to_change[$cpd2] = $coefs[1];
+                if (isset($coefs_to_try)) {
+                    if (count($coefs_to_try) > self::MAX_COEF_LOOPS) {
+                        $this->logHardStep();
+                        return false;
                     }
-                    $this->changeCoefs($ps_str, $cpd1, $orig_coef1, $empty);
-                    $this->changeCoefs($ps_str, $cpd2, $orig_coef2, $empty);
-                    $this->applyWorksheetChanges($ps_str);
+                    foreach ($coefs_to_try as $i=>$coefs) {
+                        $this->changeCoefs($ps_str, $cpd1, $coefs[0], $empty, 
+                            true);
+                        $this->changeCoefs($ps_str, $cpd2, $coefs[1], $empty, 
+                            true);
+                        $this->applyWorksheetChanges($ps_str);
+                        $wks2 = $this->wksheet;
+                        // if there is an existing non-dummy defender, then
+                        // when a new defender is found re-balancing occurs
+                        $step_st = "Balance";
+                        if ($foundNewBalanced) $step_st = "Re-balance";
+                        $foundNewBalanced = 
+                                $this->compareWorksheets($wks1, $wks2, 
+                                    $elem);
+                        if ($foundNewBalanced) {
+                            $wks1 = $wks2;
+                            $coef_is_diff = true;
+                            $cur_step = $step_st." by changing coefficients ";
+                            $cur_step .= "of ".$elem." compounds such that ";
+                            $cur_step .= "their atom count sum is a factor ";
+                            $cur_step .= "of the difference";
+                            $cur_step .= self::STEPDELIM .$psprefix . $elem;
+                            $this->logStep($cur_step);
+                            unset($cpds_to_change);
+                            $cpds_to_change[$cpd1] = $coefs[0];
+                            $cpds_to_change[$cpd2] = $coefs[1];
+                        }
+                        $this->changeCoefs($ps_str, $cpd1, $orig_coef1, 
+                                $empty);
+                        $this->changeCoefs($ps_str, $cpd2, $orig_coef2, 
+                                $empty);
+                        $this->applyWorksheetChanges($ps_str);
+                    }
                 }
             }
             $this->changeCoefs($ps_str, $cpds_to_change, 0, 
@@ -1281,8 +1291,13 @@ class Equation {
     
     public function showReaction($header) {
         echo "\n\t\t\t", $header, ":<br>\n";
-        $this->formatReaction();
-        echo $this->formattedRxn;
+        if (isset($this->rxnts) && isset($this->prods)) {
+            echo $this->replaceCoefs();
+        } else {
+            // reaction only formatted in constructor for valid reactions
+            $this->formatReaction();
+            echo $this->formattedRxn;
+        }
     }
 
     private function formatInvalidReaction($fontsize, $f_end, $no_raw_rxn) {
@@ -1351,9 +1366,7 @@ class Equation {
         $outstr = $fontsize;
         foreach ($this->rxnts->getCompoundList() as $cpd=>$elems) {
             $cpdstr = self::fmtEorC("compound", $cpd, false);
-            if ($elems["#"] > 1) {
-               $cpdstr .= self::fmtEorC("c:".$elems["#"], $cpd);
-            }
+            $cpdstr .= self::fmtEorC("c:".$elems["#"], $cpd);
             $cpdstr .= $this->formatCompound("reactant", $cpd)."</span> + ";
             $outstr .= $cpdstr;
         }
@@ -1361,9 +1374,7 @@ class Equation {
         $outstr .= " ==> ";
         foreach ($this->prods->getCompoundList() as $cpd=>$elems) {
             $cpdstr = self::fmtEorC("compound", $cpd, false);
-            if ($elems["#"] > 1) {
-               $cpdstr .= self::fmtEorC("c:".$elems["#"], $cpd);
-            }
+            $cpdstr .= self::fmtEorC("c:".$elems["#"], $cpd);
             $cpdstr .= $this->formatCompound("product", $cpd)."</span> + ";
             $outstr .= $cpdstr;
         }
@@ -1371,6 +1382,26 @@ class Equation {
         $outstr .= $f_end."\n";
         
         $this->formattedRxn = $outstr;
+    }
+
+    public function replaceCoefs() {
+        $rxnout = $this->formattedRxn;
+        $allcomps = array_merge($this->rxnts->getCompoundList(),
+                $this->prods->getCompoundList());
+        foreach ($allcomps as $curcpd=>$cpdarr) {
+            $cur_span = "<span class='coef_".$curcpd."'><";
+            $cur_span = str_replace("(", "-", $cur_span);
+            $cur_span = str_replace(")", "-", $cur_span);
+            $len_span = strlen($cur_span);
+            $cur_coef_pos = strpos($rxnout, $cur_span);
+            $cur_coef_pos += $len_span - 2;
+            $coefstr = $cpdarr["#"];
+            if ($coefstr == "1") $coefstr = "";
+            $rxnout = substr_replace($rxnout, ">".$coefstr."<",
+                    $cur_coef_pos, 2);
+        }
+        unset($allcomps);
+        return $rxnout;
     }
 
     public function dumpWS(&$ws, $header) {
@@ -1407,7 +1438,7 @@ class EqFactory {
     public function newEquation() {
         $rawEqJSON = file_get_contents("php://input");
         if (strlen($rawEqJSON) < 2) {
-            return null;
+            return NULL;
         }
         $eqJSON = stripslashes($rawEqJSON);
         $eqJSON = substr($eqJSON, 0, strlen($eqJSON) - 5)."}]}}";
