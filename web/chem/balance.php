@@ -67,8 +67,7 @@ TMP;
             echo <<<"TMP"
 
 		<div id="extra_steps" class="bdrtop" style="display: none;">
-			Unabridged steps in balancing:<br>
-			=============<br>
+			<h3>Unabridged steps in balancing</h3>
 			<ul>
 TMP;
             for ($i = 1; $i < count($steplist); $i++) {
@@ -83,8 +82,7 @@ TMP;
         echo <<<"TMP"
 		</div>
 		<div id="rxn_steps" class="bdrtop">
-			Steps in balancing:<br>
-			=============<br>
+			<h3>Steps in balancing</h3>
 
 TMP;
         if (!$too_many_steps) { 
@@ -103,7 +101,7 @@ TMP;
         echo <<<'TMP'
 		</div>
 		<div class="bdrtop wksheet">
-			====final worksheet====<br>
+			<h3>Final Worksheet</h3>
 
 TMP;
         foreach ($eqn->getWorksheet() as $i => $wkrow) {

@@ -56,6 +56,15 @@ a:hover {
 	color: #e278c4;
 }
 
+label {
+    padding-top: 2%;
+    font-size: x-large;
+}
+
+h3 {
+    text-decoration: underline overline;
+}
+    
 .bdrtop {
     border-top: 2px solid blue;
 }

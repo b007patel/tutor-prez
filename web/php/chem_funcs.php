@@ -1371,7 +1371,7 @@ class Equation {
             $outstr .= $cpdstr;
         }
         $outstr = rtrim($outstr, " +");
-        $outstr .= " ==> ";
+        $outstr .= ' <i class="fa fa-long-arrow-right fa-lg"></i> ';
         foreach ($this->prods->getCompoundList() as $cpd=>$elems) {
             $cpdstr = self::fmtEorC("compound", $cpd, false);
             $cpdstr .= self::fmtEorC("c:".$elems["#"], $cpd);
