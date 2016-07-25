@@ -57,16 +57,21 @@ a:hover {
 }
 
 label {
-    padding-top: 2%;
-    font-size: x-large;
+	padding-top: 2%;
+	font-size: x-large;
 }
 
 h3 {
-    text-decoration: underline overline;
+	text-decoration: underline overline;
 }
-    
+	
+h4 {
+	font-weight: bold;
+	font-size: larger;
+}
+
 .bdrtop {
-    border-top: 2px solid blue;
+	border-top: 2px solid blue;
 }
 
 button,
@@ -173,9 +178,9 @@ nav.navbar-inverse {
 }
 
 @media (min-width: 768px) {
-    input#reaction {
-        min-width: 472px;
-    }
+	input#reaction {
+	    min-width: 472px;
+	}
 
 	.tooltip {
 		min-width: 20em;

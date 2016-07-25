@@ -1290,7 +1290,7 @@ class Equation {
     }
     
     public function showReaction($header) {
-        echo "\n\t\t\t", $header, ":<br>\n";
+        echo "\n<h4>", $header, "</h4>\n";
         if (isset($this->rxnts) && isset($this->prods)) {
             echo $this->replaceCoefs();
         } else {
