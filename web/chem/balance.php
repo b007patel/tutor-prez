@@ -25,7 +25,14 @@ echo <<<'EOT'
 			</form>
 			</tr>
 		</div>
-		<tr>
+		<tr id="loadjs" style="display: none;">
+			<td>
+				<h2>Balancing equation...</h2>
+				<i class="fa fa-spinner fa-pulse fa-3x fa-fw"></i>
+				<span class="sr-only">Balancing...</span>
+			</td>
+		</tr>
+		<tr id="balance_details">
 			<td>
 
 EOT;

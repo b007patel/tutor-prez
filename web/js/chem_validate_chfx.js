@@ -8,6 +8,9 @@ var nwstrim, nwstrimleft, nwstrimright;
 // instead
 var cur_rxn, last_rxn;
 var rxntxt = document.getElementById("reaction");
+var def_display = rxntxt.style.display;
+var ballding = document.getElementById("loadjs");
+var baldetails = document.getElementById("balance_details");
 
 class ChemRxnSide {
     // Assumed instr already starts with a capital
@@ -309,6 +312,8 @@ class ChemRxn {
         var post_json = JSON.stringify(eq);
         var xhr = new XMLHttpRequest();
         last_rxn = cur_rxn;
+        ballding.style.display = def_display;
+        baldetails.style.display = "none";
         xhr.open("POST", "balance.php", true);
         xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
         xhr.send(post_json);
@@ -325,6 +330,10 @@ class ChemRxn {
         if (last_rxn != undefined && new_rxntxt != undefined) {
             new_rxntxt.value = last_rxn;
         }
+        ballding = document.getElementById("loadjs");
+        ballding.style.display = "none";
+        baldetails = document.getElementById("balance_details");
+        baldetails.style.display = def_display;
     }
 
     // should this be here for ChemRxn? Can't find where it's called

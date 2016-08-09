@@ -1274,10 +1274,10 @@ class Equation {
             $reduction_factor = $this->reduceCoefficients();
             if ($reduction_factor > 1) {
                 $cur_step = "Coefficients reduced by common factor of ";
-                $cur_step .= $reduction_factor.". This means that a better ";
-                $cur_step .= "sum of coefficients could have been used ";
-                $cur_step .= "during the balancing process to get the ";
-                $cur_step .= "lowest possible integer coefficients.";
+                $cur_step .= $reduction_factor ."</li><li>";
+                $cur_step .= "A better coefficient sum could have been used ";
+                $cur_step .= "during balancing to get the lowest possible ";
+                $cur_step .= "integer coefficients.";
                 $this->logStep($cur_step);
             }
         }

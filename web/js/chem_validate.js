@@ -5,12 +5,15 @@
 
 var nwstrim, nwstrimleft, nwstrimright;
 var last_rxn;
+var rxntxt = document.getElementById("reaction");
+var def_display = rxntxt.style.display;
+var ballding = document.getElementById("loadjs");
+var baldetails = document.getElementById("balance_details");
 
 function ChemRxnSide() {}
 
 ChemRxnSide.prototype = {
     parseRxnSide: function(instr) {
-        console.log("ChmRxnSide parse instr is ", instr);
         //set trim functions
         nwstrim = nonWSTrim;
         nwstrimleft = nonWSTrimLeft;
@@ -20,7 +23,6 @@ ChemRxnSide.prototype = {
         this.comps = new HashTable();
 
         this.get_comps_with_pluses(instr);
-        console.log("comps has: ", this.comps);
         if (!v_ok(this.comps)) {
             inv_rxn = "The reaction {" + instr + "} is invalid!!";
                 console.log(inv_rxn);
@@ -140,11 +142,8 @@ ChemRxnSide.prototype.init_comps = function(instr) {
     var ion_info, cur_cpd;
     
     for (var rawcp_i in rawcomps) {
-        console.log("rawcp_i: " + rawcp_i);
-        console.log("start iter comp's contents in init_comps: ", this.comps);
         var rawcp = rawcomps[rawcp_i];
         rawcp = nwstrimleft(rawcp, "0123456789").trim();
-        console.log("rawcp is ", rawcp);
         if (rawcp[0].codePointAt() >= "a".codePointAt()) {
             this.errstr += "First element invalid: starts with ";
             this.errstr += "lower-case letter~+";
@@ -152,12 +151,9 @@ ChemRxnSide.prototype.init_comps = function(instr) {
         }
         // start off with 1 of each compound (i.e., coefficient=1)
         if (this.comps != undefined) {
-            console.log("new entry for compound " + rawcp);
             this.comps.set(rawcp, new HashTable());
             cur_cpd = this.comps.get(rawcp);
             cur_cpd.set("#", 1);
-            //tmpl1 = this.comps.get(rawcp)("#");
-            //console.log("comps[", rawcp, "][#] is: ", tmpl1);
         }
         if ((lbpos = rawcp.indexOf("(")) >= 0) {
             var pa_str = this.find_all_pa_ions(rawcp, lbpos);
@@ -224,7 +220,6 @@ ChemRxnSide.prototype.get_comps_with_pluses = function(instr) {
     for (var rawcp in this.comps.items) {
         srchstr = rawcp;
         gc_cpd_entry = this.comps.get(rawcp);
-        console.log("curr gc cpd entry for ", rawcp , ": ", gc_cpd_entry);
         var rcp = copyMap(gc_cpd_entry);
         if (!v_ok(rcp)) {
             pa_ion: for (var ion_sym in rcp) {
@@ -374,6 +369,8 @@ ChemRxn.postReaction = function() {
     var post_json = JSON.stringify(eq);
     var xhr = new XMLHttpRequest();
     ChemRxn.last_rxn = ChemRxn.cur_rxn;
+    ballding.style.display = def_display;
+    baldetails.style.display = "none";
     xhr.open("POST", "balance.php", true);
     xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
     xhr.send(post_json);
@@ -390,5 +387,9 @@ ChemRxn.lastRxnIntoText = function() {
     if (ChemRxn.last_rxn != undefined && new_rxntxt != undefined) {
         new_rxntxt.value = ChemRxn.last_rxn;
     }
+    ballding = document.getElementById("loadjs");
+    ballding.style.display = "none";
+    baldetails = document.getElementById("balance_details");
+    baldetails.style.display = def_display;
 }
 
