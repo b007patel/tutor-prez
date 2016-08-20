@@ -12,8 +12,8 @@ Basic:
 H2 + O2 = H2O
 CO2 + H2O = C6H12O6 + O2
 Zn + Al2(SO4)3 = Al + ZnSO4
-Zn + CuSo4 = Cu + ZnSO4
-Zn + Cu2So4 = Cu + ZnSO4
+Zn + CuSO4 = Cu + ZnSO4
+Zn + Cu2SO4 = Cu + ZnSO4
 K2MnO4 + CO2 = KMnO4 + K2CO3 + MnO2
 
 Negative assertions:

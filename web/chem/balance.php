@@ -52,13 +52,13 @@ if ($eqn != NULL) {
         echo "</ul>\n";
     } else {
         if (count($eqn->getErrors()) > 0) {
-            echo "<br><div id='rxn_warns' class='bdrtop'>Warning(s):<br>\n";
+            echo "<br><div id='rxn_warns' class='bdrtop bdrbtm'>Warning(s):<br>\n";
             foreach ($eqn->getErrors() as $i=>$err) {
                 echo $err;
             }
-            echo "</ul>\n</div><br><br>";
+            echo "</ul>\n<br></div>";
         }
-        echo "<div id='rxn_unbal' class='bdrtop'>";
+        echo "<div id='rxn_unbal'>";
         $eqn->showReaction("Starting (Unbalanced) reaction");
         $eqn->balance();
         echo <<<"TMP"
@@ -66,8 +66,11 @@ if ($eqn != NULL) {
 
 TMP;
         $steplist = $eqn->getSteps();
-        // 9 = strlen("<ul>\n<li>")
-        $too_many_steps = substr(trim($steplist[0]), 9, 2) == "**";
+        $too_many_steps = false;
+        if (count($steplist) > 0) {
+            // 9 = strlen("<ul>\n<li>")
+            $too_many_steps = substr(trim($steplist[0]), 9, 2) == "**";
+        }
         if ($too_many_steps) { 
             // because the first step is omitted (no need to repeat the
             // "too hard to balance..." msg) insert a <ul> tag manually

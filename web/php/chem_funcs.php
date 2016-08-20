@@ -174,14 +174,16 @@ class Equation {
         }
 
         $eqjson = json_decode($instr);
-        $rawrxnts = ($eqjson != NULL && !empty($eqjson))?$eqjson->rxnts:NULL;
+        $rawrxnts = 
+                ($eqjson != NULL && !empty($eqjson)) ? $eqjson->rxnts : NULL;
         if ($rawrxnts == NULL || empty($rawrxnts)) {
             $this->setErrorsFromJSON($instr, $pos_of_bad);
             return;
         }
         $this->rxnts = new EqSide($rawrxnts);
         if ($this->rxnts->getCompoundList() == NULL) return;
-        $rawprods = ($eqjson != NULL && !empty($eqjson))?$eqjson->prods:NULL;
+        $rawprods = 
+                ($eqjson != NULL && !empty($eqjson)) ? $eqjson->prods : NULL;
         if ($rawprods == NULL || empty($rawprods)) return;
         $this->prods = new EqSide($rawprods);
         if ($this->prods->getCompoundList() == NULL) return;
@@ -281,7 +283,7 @@ class Equation {
             $rawstr = trim($rawstr, "-");
             $step_parts = explode(self::STEPDELIM, $rawstr);
             $lev_diff = $step_lev - $cur_lev;
-            $cl_arg = ($cur_lev >= 0)?$cur_lev:0;
+            $cl_arg = ($cur_lev >= 0) ? $cur_lev : 0;
             if ($lev_diff == 1) {
                 $listchg = str_repeat("\t", $cl_arg)."<ul>\n";
                 $cur_lev = $step_lev;
@@ -1097,7 +1099,7 @@ class Equation {
         $printsub = false; $haveelem = false; $elemopen = false;
         $rb_found = false;
         $eprefix = "<span class='eall_# ";
-        $eprefix .= ($ps == "reactant")?"erx_#":"epd_#";
+        $eprefix .= ($ps == "reactant") ? "erx_#" : "epd_#";
         $eprefix .= "'>";
         $eend = "&^&</span>";
         $eendlen = strlen($eend);
@@ -1301,29 +1303,29 @@ class Equation {
     }
 
     private function formatInvalidReaction($fontsize, $f_end, $no_raw_rxn) {
-        // get reaction string from raw JSON string
+        // get reaction string from raw JSON string. Only gets run when
+        // chem_validate*.js confirms no fake elements given.
         function formatRawJSONRxn($rawjson) {
             $raw_rxn = "";
-            $raw_cpds = explode("rxnts", $rawjson);
-            $raw_cpds = explode(": "."\[{", $raw_cpds[1]);
-            for ($i=0; $i < count($raw_cpds) - 1; $i ++) {
-                if (strpos($raw_cpds[$i], "prods") > 0) {
-                    if (strrpos($raw_rxn, "+") === false) {
-                        $raw_rxn = "= ";
-                    } else {
-                        $raw_rxn[strrpos($raw_rxn, "+")] = "=";
+            $raw_sides = explode('"rxnts":', $rawjson);
+            $raw_sides = explode('"prods":', $raw_sides[1]);
+            for ($i=0; $i < count($raw_sides); $i ++) {
+                if ($i > 0) { // products given
+                    $raw_rxn .= " = ";
+                }
+                $json_delim_01 = '": [{"#"';
+                $json_delim_02 = '}], "';
+                $split1 = explode($json_delim_01, $raw_sides[$i]);
+                for ($sdcpd_i=0; $sdcpd_i < count($split1); $sdcpd_i ++) {
+                    $cur_cpd = $split1[$sdcpd_i];
+                    if (substr($cur_cpd, 0, 3) == ' : ') {
+                        $split2 = explode($json_delim_02, $cur_cpd);
+                        $cur_cpd = (count($split2) > 1) ? $split2[1] : "";
                     }
+                    $raw_rxn .= trim($cur_cpd, '{[""]},')." + ";
                 }
-                $split1 = explode(':\{"', $raw_cpds[$i]);
-                $cur_cpd = $split1[1];
-                if (strlen($cur_cpd) < 1) $cur_cpd = $split1[0];
-                if (strpos($cur_cpd, "], ") > 0) {
-                    $split2 = explode("}\], ", $cur_cpd);
-                    $cur_cpd = $split2[1];
-                }
-                $raw_rxn .= trim($cur_cpd, '{[""]}')." + ";
+                $raw_rxn = rtrim($raw_rxn, " +");
             }
-            $raw_rxn = rtrim($raw_rxn, " +");
             return $raw_rxn;            
         }
         
