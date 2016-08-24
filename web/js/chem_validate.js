@@ -314,6 +314,7 @@ function ChemRxn() {}
 
 ChemRxn.prototype = {
     parseRxn: function(instr) {
+        var warn_str = "WARNING! ";
         instr = instr.toString().trim();
         this.errstr = "";
         this.rxnts = undefined;
@@ -327,7 +328,8 @@ ChemRxn.prototype = {
                 this.errstr = "ERROR! Consecutive ='s not allowed!! ";
                 this.errstr += "They cause products to be skipped~+";
             } else {
-                this.errstr = "WARNING! Too many ='s!!~+";            
+                this.errstr = warn_str + "Too many ='s!! All characters ";
+                this.errstr += "after the second '=' have been ignored.~+";
             }
         }
         var eqsides = instr.split("=");

@@ -152,6 +152,8 @@ class Equation {
     const MAX_COEF_LOOPS = 200;
     const MAX_COEF = 50000;
     const STEPDELIM = "^#$%$#^";
+    const WARN_STR = "WARNING! ";
+    const RX_ARROW = ' <i class="fa fa-long-arrow-right fa-lg"></i> ';
     private $rxnts = NULL;
     private $prods = NULL;
     private $wksheet = NULL;
@@ -168,7 +170,7 @@ class Equation {
         self::openDbgFile($_SERVER["DOCUMENT_ROOT"]."/php/dbg_out.txt");
         $this->raw_json = $instr;
         $pos_of_bad = strpos($instr, "--BAD--");
-        $warning_given = strpos($instr, "WARNING") > 0; 
+        $warning_given = strpos($instr, self::WARN_STR) > 0; 
         if ($pos_of_bad > 0 || $warning_given) {
             $this->setErrorsFromJSON($instr, $pos_of_bad);
         }
@@ -269,7 +271,7 @@ class Equation {
         return $rv;
     }
     
-    private static function getHTMLList(&$strs) {
+    private static function getHTMLList(&$strs, $isErrlist = false) {
         $cur_lev = -1;
         $fmtted_strs = [];
         $s_count = count($strs);
@@ -304,6 +306,11 @@ class Equation {
                 }
             }
             $curstr = $listchg.str_repeat("\t", $step_lev)."<li>";
+            if (!$isErrlist) {
+                $cstep = "".($i+1);
+                $curstr .= "<span id='step_".$cstep."' ";
+                $curstr .= "class='stepnum'>(".$cstep.") </span>";
+            }
             $step_body = $step_parts[0];
             if (count($step_parts) > 1) {
                 $raweclist = explode("}", $step_parts[1]);
@@ -345,7 +352,12 @@ class Equation {
         $this->errors = explode("~+", $rawerrs);
         foreach ($this->errors as $i=>$err) {
             $this->errors[$i] = trim($err, "~+ ")."\n";
-            if (strlen($err) < 1) array_splice($this->errors, $i);
+            if (strlen($err) < 1) {
+                array_splice($this->errors, $i);
+            } else if (strpos($this->errors[$i], self::WARN_STR) !== false) {
+                $this->errors[$i] = substr($this->errors[$i], 
+                        strlen(self::WARN_STR));
+            }
         }
     }
     
@@ -353,7 +365,7 @@ class Equation {
         if (strtolower($ret_type) != "html") {
             return $this->errors;
         }
-        return self::getHTMLList($this->errors);
+        return self::getHTMLList($this->errors, true);
     }
     
     public function getSteps($ret_type="html") {
@@ -1351,6 +1363,7 @@ class Equation {
             }
             $fmtstr .= $this->formattedRxn[$i];
         }
+        $fmtstr = str_replace(' = ', self::RX_ARROW, $fmtstr);
         $this->formattedRxn = $fmtstr;
     }
     
@@ -1373,7 +1386,7 @@ class Equation {
             $outstr .= $cpdstr;
         }
         $outstr = rtrim($outstr, " +");
-        $outstr .= ' <i class="fa fa-long-arrow-right fa-lg"></i> ';
+        $outstr .= self::RX_ARROW;
         foreach ($this->prods->getCompoundList() as $cpd=>$elems) {
             $cpdstr = self::fmtEorC("compound", $cpd, false);
             $cpdstr .= self::fmtEorC("c:".$elems["#"], $cpd);

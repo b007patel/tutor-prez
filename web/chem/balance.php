@@ -5,23 +5,23 @@ include "../php/chem_funcs.php";
 $page_title = "Chemical Reaction Balancer (by Inspection)";
 include "../php/html-start-tmpl.php";
 //include "../php/nav_tmpl.php";
-echo <<<'EOT'
+echo <<<"EOT"
 	<h2>Chemical Reaction Balancer</h2>
 	<div id="rxn_main" class="bdrtop col-sm-24 col-md-12">
 		<table class='center col-sm-24 col-md-12">
 		<div id="rxn_form"> 
-			<form name='balance' id='balance' action='#' method="" style='margin-bottom:0;'>
+			<form id='balance' action='#' method="" style='margin-bottom:0;'>
 			<tr>
 				<td><label class="col-sm-24 col-md-12"><b>Enter a chemical equation to balance:</b><br></td>
 			</tr>
 			<tr>
 				<td style='padding-left: 15px;'>
-					<input autofocus name='reaction' id='reaction'" style='width: 97%;' 
-						placeholder='Enter a chemical equation to balance'"
+					<input autofocus id='reaction' style='width: 97%;' 
+						placeholder='Enter a chemical equation to balance'
 						oninput='ChemRxn.rxnChanged(this);'
 						onkeypress='return kpEnterHandler(event, ChemRxn.postReaction);'>
 				</label></td>
-				<td><input type='button' name="bal_button" value='Balance' onclick="ChemRxn.postReaction();"></td>
+				<td><input type='button' id="bal_button" value='Balance' onclick="ChemRxn.postReaction();"></td>
 			</form>
 			</tr>
 		</div>
@@ -108,9 +108,11 @@ TMP;
         
 TMP;
         }
-        echo <<<'TMP'
+        $last_wks_prefix = '<div id="wks_st'.count($steplist).'" ';
+        $last_wks_prefix .= 'class="bdrtop wksheet">';
+        echo <<<"TMP"
 		</div>
-		<div class="bdrtop wksheet">
+                $last_wks_prefix
 			<h3>Final Worksheet</h3>
 
 TMP;
@@ -124,7 +126,7 @@ TMP;
     }
 }
 
-echo <<<'EOT'
+echo <<<"EOT"
 				</td>
 			</tr>
 		</div>

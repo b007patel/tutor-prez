@@ -343,6 +343,7 @@ class ChemRxn {
 
     constructor(instr) {
         instr = instr.toString().trim();
+        var warn_str = "WARNING! ";
         this.errstr = "";
         if (instr.indexOf("=") < 0) {
             this.errstr = "No products given!!~+";
@@ -353,7 +354,8 @@ class ChemRxn {
                 this.errstr = "ERROR! Consecutive ='s not allowed!! ";
                 this.errstr += "They cause products to be skipped~+";
             } else {
-                this.errstr = "WARNING! Too many ='s!!~+";            
+                this.errstr = warn_str + "Too many ='s!! All characters ";
+                this.errstr += "after the second '=' have been ignored.~+";
             };
         };
         let eqsides = instr.split("=");
