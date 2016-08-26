@@ -52,7 +52,8 @@ if ($eqn != NULL) {
         echo "</ul>\n";
     } else {
         if (count($eqn->getErrors()) > 0) {
-            echo "<br><div id='rxn_warns' class='bdrtop bdrbtm'>Warning(s):<br>\n";
+            echo "<br><div id='rxn_warns' class='bdrtop bdrbtm'>", 
+                    "Warning(s):<br>\n";
             foreach ($eqn->getErrors() as $i=>$err) {
                 echo $err;
             }
@@ -69,7 +70,8 @@ TMP;
         $too_many_steps = false;
         if (count($steplist) > 0) {
             // 9 = strlen("<ul>\n<li>")
-            $too_many_steps = substr(trim($steplist[0]), 9, 2) == "**";
+            $too_many_steps = strpos($steplist[0], 
+                    "** HARD OR IMPOSSIBLE") !== false;
         }
         if ($too_many_steps) { 
             // because the first step is omitted (no need to repeat the
