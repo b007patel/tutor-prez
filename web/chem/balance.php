@@ -118,7 +118,7 @@ TMP;
 			<h3>Final Worksheet</h3>
 
 TMP;
-        foreach ($eqn->getWorksheet() as $i => $wkrow) {
+        foreach ($eqn->getWorksheet(count($steplist)) as $i => $wkrow) {
             echo <<<"TMP"
 			$wkrow
 

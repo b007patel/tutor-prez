@@ -308,8 +308,8 @@ class Equation {
             $curstr = $listchg.str_repeat("\t", $step_lev)."<li>";
             if (!$isErrlist) {
                 $cstep = "".($i+1);
-                $curstr .= "<span id='step_".$cstep."' ";
-                $curstr .= "class='stepnum'>(".$cstep.") </span>";
+                $curstr = str_replace("<li>", "<li id='step_".$cstep."'>", $curstr);
+                $curstr .= "<span class='stepnum'>(".$cstep.") </span>";
             }
             $step_body = $step_parts[0];
             if (count($step_parts) > 1) {
@@ -398,15 +398,18 @@ class Equation {
         return NULL;
     }
 
-    public function getWorksheet($ret_type="html") {
+    public function getWorksheet($stnum, $ret_type="html") {
         if (strtolower($ret_type) != "html") {
+            //TODO: return worksheet for given step
             return $this->wksheet;
         }
         $wks[0] = "<table>\n\t<tr class='tbl_header'><td>Element</td>";
         $wks[0] .= "<td>Reactants</td><td>Products</td></tr>\n";
         foreach ($this->wksheet as $elem => $cnts) {
-            $cur_row = "\t<tr><td>".$elem."</td><td class='num'>".$cnts[0];
-            $cur_row .= "</td><td class='num'>".$cnts[1]."</td></tr>\n";
+            $cur_row = "\t<tr id='wks_st".$stnum."_".$elem."'>";
+            $cur_row .= "<td>".$elem."</td><td class='num'>";
+            $cur_row .= $cnts[0]."</td><td class='num'>".$cnts[1];
+            $cur_row .= "</td></tr>\n";
             $wks[count($wks)] = $cur_row;
         }
         $wks[count($wks)] = "</table>";
@@ -1264,6 +1267,7 @@ class Equation {
     
     public function balance() {
         if ($this->isBalanced()) {
+            $this->logStep("Starting equation was already balanced.");
             return;
         }
         $cur_elem = $this->findElemToBalance();
