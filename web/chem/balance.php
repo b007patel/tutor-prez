@@ -8,20 +8,20 @@ include "../php/html-start-tmpl.php";
 echo <<<"EOT"
 	<h2>Chemical Reaction Balancer</h2>
 	<div id="rxn_main" class="bdrtop col-sm-24 col-md-12">
-		<table class='center col-sm-24 col-md-12">
+		<table class="center col-sm-24 col-md-12">
 		<div id="rxn_form"> 
-			<form id='balance' action='#' method="" style='margin-bottom:0;'>
+			<form id='balance' action='#' method="" style='margin-bottom:0;'></form>
 			<tr>
-				<td><label class="col-sm-24 col-md-12"><b>Enter a chemical equation to balance:</b><br></td>
+				<td><label form="balance" class="col-sm-24 col-md-12"><b>Enter a chemical equation to balance:</b></td>
 			</tr>
 			<tr>
-				<td style='padding-left: 15px;'>
-					<input autofocus id='reaction' style='width: 97%;' 
+				<td id="rxntxtcell" style='padding-left: 15px; '>
+					<input autofocus form="balance" id='reaction' style="width: 100%; "
 						placeholder='Enter a chemical equation to balance'
 						oninput='ChemRxn.rxnChanged(this);'
 						onkeypress='return kpEnterHandler(event, ChemRxn.postReaction);'>
 				</label></td>
-				<td><input type='button' id="bal_button" value='Balance' onclick="ChemRxn.postReaction();"></td>
+				<td><input type='button' form="balance" id="bal_button" value='Balance' onclick="ChemRxn.postReaction();"></td>
 			</form>
 			</tr>
 		</div>

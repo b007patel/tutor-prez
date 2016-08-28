@@ -183,6 +183,10 @@ nav.navbar-inverse {
 		height: 35px;
 		margin: auto 3px;
 	}
+    #rxntxtcell {
+        width: 95%;
+    }
+
 }
 
 @media (min-width: 768px) {
@@ -199,6 +203,9 @@ nav.navbar-inverse {
 		background-position: center;
 		background-size: cover;
 	}
+    #rxntxtcell {
+        width: 65%;
+    }
 
 }
 
