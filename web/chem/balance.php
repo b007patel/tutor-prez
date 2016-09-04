@@ -4,7 +4,7 @@
 include "../php/chem_funcs.php";
 $page_title = "Chemical Reaction Balancer (by Inspection)";
 include "../php/html-start-tmpl.php";
-//include "../php/nav_tmpl.php";
+include "../php/nav-tmpl.php";
 echo <<<"EOT"
 	<h2>Chemical Reaction Balancer</h2>
 	<div id="rxn_main" class="bdrtop col-sm-24 col-md-12">

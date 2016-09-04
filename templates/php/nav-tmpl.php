@@ -23,14 +23,22 @@
 					<li class="dropdown">
 						<a class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"><span class="tooltip-block"  title="Various projects showcasing Bharat's skills" data-toggle="tooltip" data-placement="auto left">Projects <span class="caret"></span></span></a>
 						<ul class="dropdown-menu">
-						<li><a href="/projects/index.php" title="Description of the sample project built in different ways" data-toggle="tooltip" data-placement="auto right">Project Description</a></li>
+						<li><a href="/projects/index.php" title="Overview of sample projects" data-toggle="tooltip" data-placement="auto right">Project Descriptions</a></li>
+						<li><a href="/projects/chem/balancer/index.php" title="Description of chemical reaction balancer project"  data-toggle="tooltip" data-placement="auto right">- Chem Balancer</a></li>
+						<li><a href="/projects/metaproj/index.php" title="How this website was built" data-toggle="tooltip" data-placement="auto right">- This Website</a></li>
 						<li role="separator" class="divider"></li>
+						<li class="dropdown-header">Tutor aids</li>
+						<li><a href="/tutor-prez/web/chem/balance.php" title="Chemical reaction balancer using AJAX"  data-toggle="tooltip" data-placement="auto right">Chem Balancer</a></li>
+						<li><a href="/projects/chem/balancer/testing.php" title="How chemical balancer is tested, including source links and demos"  data-toggle="tooltip" data-placement="auto right">Testing the Balancer</a></li>
+						<li role="separator" class="divider"></li>
+						<li class="dropdown-header">CSS/JQuery example</li>
+						<li><a href="/projects/metaproj/index.php" title="How this website was built" data-toggle="tooltip" data-placement="auto right">This Website</a></li>
+<!-- REST project is under construction. Hide links
 						<li title="Sample projects showcasing REST" class="dropdown-header" data-toggle="tooltip" data-placement="auto right">REST solutions</li>
 						<li><a href="/rest/mysql/index.php" title="Sample using REST and only MySQL for session-based applicatons" data-toggle="tooltip" data-placement="auto right">REST<span class="glyphicon glyphicon-arrow-right menu-arrow" aria-hidden="true"><span class="sr-only">using</span></span>MySQL</a></li>
 						<li><a href="/rest/jboss/index.php" title="Sample using REST and JBoss with a MySQL DB for session-based applicatons" data-toggle="tooltip" data-placement="auto right">REST<span class="glyphicon glyphicon-arrow-right menu-arrow" aria-hidden="true"></span>JBoss</a></li>
 						<li role="separator" class="divider"></li>
-						<li class="dropdown-header">CSS/JQuery example</li>
-						<li><a href="/rest/mysql/index.php">This Website</a></li>
+-->
 						</ul>
 					</li>
 					<li><a href="/blog" title="Bharat's blog about IT and other matters" data-toggle="tooltip" data-placement="auto right">Blog</a></li>
@@ -38,4 +46,4 @@
 			</div>
 		</div>
 	</nav>
-
+	
