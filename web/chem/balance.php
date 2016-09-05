@@ -72,6 +72,11 @@ TMP;
             // 9 = strlen("<ul>\n<li>")
             $too_many_steps = strpos($steplist[0], 
                     "** HARD OR IMPOSSIBLE") !== false;
+
+        }
+        if (!$too_many_steps) {
+                $too_many_steps = strpos($steplist[0], 
+                        "** # of steps exceeds max steps") !== false;
         }
         if ($too_many_steps) { 
             // because the first step is omitted (no need to repeat the

@@ -166,6 +166,9 @@ class Equation {
     private $formattedRxn = "";
     private $last_bal_elem = "";
     
+    // turn on debug by setting this to true
+    private static $debug = false;
+
     function __construct($instr){
         self::openDbgFile($_SERVER["DOCUMENT_ROOT"]."/php/dbg_out.txt");
         $this->raw_json = $instr;
@@ -454,18 +457,22 @@ class Equation {
     }
     
     public static function openDbgFile($dbgfname) {
+        if (!self::$debug) return;
         self::$dbgfile = fopen($dbgfname,"w");
     }
     
     public static function closeDbgFile() {
+        if (!self::$debug) return;
         if (self::$dbgfile != NULL) fclose(self::$dbgfile);
     }
     
     private static function rawDbgWrite($instr) {
+        if (!self::$debug) return;
         fwrite(self::$dbgfile, $instr);
     }
     
     private static function dbgOut($instr, $in_arr="junk") {
+        if (!self::$debug) return;
         if (!is_array($in_arr)) {
             echo htmlspecialchars($instr), "<br>";
             self::rawDbgWrite($instr."\n");

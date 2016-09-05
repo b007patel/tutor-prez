@@ -23,6 +23,8 @@ jU7Nk3 = jU3 + Nk2 (element starts with lower case letter)
 Yt7 + P17 = P4Yt10 (Yt is not in periodic table)
 K2MnO4 + CO2 (should be invalid because no products given)
 K2MnO4 + CO2 = KMnO4 + K2CO3 + MnO2 = PO (expect last = term to be ignored)
+H2O2 = H2 + O2
+- should exceed max number of steps
 Al + NO3 = Al(NO3)2 + H2O (different count of elements on each side)
 Al + NO3 + P4 = Al(NO3)2 + H2O (equal count of elements, but P != H)
   = DyW + NH3 (makes sure input is trimmed, and invalid because no reactants)
