@@ -77,7 +77,7 @@ public class TestDB {
         }
         try {
             // register driver class
-            // to avoid the Tmcat "forcibly unregistered" message, use
+            // to avoid the Tomcat "forcibly unregistered" message, use
             // connection pools instead. For now, I'll leave this as is
             Class.forName(dbDriverClass);
             conn = DriverManager.getConnection(baseurl, connprops);
