@@ -1,0 +1,13 @@
+- a .war file has the following structure:
+
+/WEB-INF/classes/...
+/WEN-INF/libs/...
+/WEB-INF/web.xml
+
+- need 3rd party JARs in libs. Can either go with exploded user classes in
+  classes, or a user JAR in libs
+- web.xml is in this directory
+- the current process to make a war is
+--- ./build-jdk7.sh
+--- ./make_war.sh
+--- copy resulting war to Ubuntu box
