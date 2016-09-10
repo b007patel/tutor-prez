@@ -27,7 +27,9 @@ public class ChemRxnTest {
 
     static WebDriver drv;
     static String drvClassName;
+    static String dbg_out;
     Class<?> drvClass;
+    private ArrayList<Integer> cases_to_fail;
     ChemRxnBalancer_PG_POF CRBPage;
     PreparedStatement vsteps_ps = null, vrxns_ps = null;
     ArrayList<String> vs_types, suite_descs;
@@ -73,6 +75,8 @@ public class ChemRxnTest {
         }
         this.verifyHTML(exp_html, inp_html, failstr);
         
+        // if cid is in cases_to_fail, then mess up vsrs' output
+        // to cause a failure
         vsps.setInt(1, cid);
         ResultSet vsrs = vsps.executeQuery();
         while (vsrs.next()) {
@@ -130,7 +134,8 @@ public class ChemRxnTest {
     }
     
     @BeforeTest
-    public void beforeTest() throws Throwable {
+    @Parameters ( {"fail_pct"} ) 
+    public void beforeTest(int failpct) throws Throwable {
         // use a Java cmd line -D property to set props file
         String webclipropsfile = System.getProperty("tptest.wcprop", 
                 System.getenv("HOME") + "/webcli.props");
@@ -167,6 +172,38 @@ public class ChemRxnTest {
             suite_descs.add(suitedescs_rs.getInt("suite_id"), 
                     suitedescs_rs.getString("suite_desc"));
         }
+        
+        // choose random failing cases if requested
+        cases_to_fail = new ArrayList<Integer>();
+        if (failpct < 1) return;
+        
+        ResultSet crs = TestDB.execSql("select case_id from test_case");
+        while (crs.next()) {
+            cases_to_fail.add(Integer.valueOf(crs.getInt("case_id")));
+        }
+        int totcases = cases_to_fail.size();
+        int casecnt = Math.round(totcases * failpct / 100);
+        if (casecnt < 1) casecnt = 1;
+        ArrayList<Integer> tmplist = new ArrayList<Integer>();
+        int delindex = -1;
+        for (int i=0; i < casecnt; i++) {
+            // delete a random element from cases_to_fail
+            delindex = (int)Math.round(Math.random() * Math.abs(totcases - 
+                    tmplist.size())) - 1;
+            if (delindex < 0) delindex = 0;
+            tmplist.add(cases_to_fail.get(delindex));
+            cases_to_fail.remove(delindex);
+        }
+        
+        cases_to_fail.removeAll(cases_to_fail);
+        cases_to_fail.addAll(tmplist);
+        Collections.sort(cases_to_fail);
+        tmplist.removeAll(tmplist);
+        /*// debug - confirm that random lists are generated
+        ChemRxnTest.dbg_out = "";
+        for (Integer cidint : ChemRxnTest.cases_to_fail) {
+            ChemRxnTest.dbg_out  += String.format("CID to change: %d\n", cidint.intValue());
+        }*/
     }
     
     @BeforeMethod
@@ -215,6 +252,8 @@ public class ChemRxnTest {
         } catch (SQLException sqle) {
             // log conn end error(s)?
         }
+        System.out.println("debug output:\n**********");
+        System.out.println(ChemRxnTest.dbg_out);
     }
     
 }

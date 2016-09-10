@@ -21,10 +21,11 @@ rm -rf ${srcdir}/tmpjar
 mkdir ${srcdir}/tmpjar
 
 pushd ${srcdir}
+find tputil -name "*.class" -exec ${srcdir}/test/servlet/cp_class.sh {} ${srcdir}/tmpjar \;
 find test -name "*.class" -exec ${srcdir}/test/servlet/cp_class.sh {} ${srcdir}/tmpjar \;
 
 cd tmpjar
-jar cvf ${depdir}/lib/chemtest.jar test
+jar cvf ${depdir}/lib/chemtest.jar *
 
 # 3rd party jars
 ## because of servlet container connection pooling, the needed driver jars

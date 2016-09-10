@@ -9,19 +9,13 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.testng.IReporter;
-import org.testng.TestListenerAdapter;
-import org.testng.TestNG;
-import org.testng.reporters.FailedReporter;
-import org.testng.reporters.JUnitReportReporter;
-import org.testng.reporters.SuiteHTMLReporter;
-import org.testng.reporters.TestHTMLReporter;
-import org.testng.reporters.XMLReporter;
-import org.testng.reporters.jq.Main;
 import org.testng.xml.XmlClass;
 import org.testng.xml.XmlSuite;
 import org.testng.xml.XmlTest;
 
+import tputil.*;
+
+import test.RunTest;
 import test.ChemRxnTest;
 
 public class TestRunnerServlet extends HttpServlet {
@@ -35,28 +29,13 @@ public class TestRunnerServlet extends HttpServlet {
             HttpServletResponse resp) throws ServletException, 
             IOException {
         resp.setContentType("text/html");
-        // a radio button on runtest.html will select what suite type
-        // to run (passing, fail because DB is down, or fail because of
-        // unexpected data
-        //String suite_type=req.getParameter("suite_type");
+        String fail_pct=req.getParameter("pct");
 
+        // for called test class(es). May be removed or replaced with 
+        // different RunTest methods
         System.setProperty("tptest.wcprop", "/var/lib/tomcat7/webcli.props");
         System.setProperty("tptest.dbprop", "/var/lib/tomcat7/db.props");
-        TestNG testng = new TestNG();
-        Main mr = new Main();
-        IReporter fr = new FailedReporter();
-        TestListenerAdapter tla = (TestListenerAdapter)fr;
-        SuiteHTMLReporter shr = new SuiteHTMLReporter();
-        JUnitReportReporter jurr = new JUnitReportReporter();
-        XMLReporter xr = new XMLReporter();
-        TestHTMLReporter thtr = new TestHTMLReporter();
-        testng.addListener(xr);
-        testng.addListener(jurr);
-        testng.addListener(shr);
-        testng.addListener(tla);
-        testng.addListener(fr);
-        testng.addListener(thtr);
-        testng.addListener(mr);
+        RunTest rt = new RunTest();
 
         String client = req.getRemoteHost();
         if (client == null || client.equals("")) {
@@ -69,40 +48,42 @@ public class TestRunnerServlet extends HttpServlet {
         curtestdir = client + "_" + curtestdir;
         XmlSuite curxml = new XmlSuite();
         XmlTest curtest = new XmlTest();
+        curtest.addParameter("fail_pct", fail_pct);
         HashMap<String, String> suiteMetaDataMap = 
                 new HashMap<String, String>();
         curtest.setClasses(Arrays.asList(new XmlClass(ChemRxnTest.class)));
 
-        // cannot use a chained BufferedReader constructor. Tomcat wants each
-        // closable resource expressly closed. If there are unnamed file
-        // streams/readers, then they cannot be closed with a .close() call
-        FileInputStream fis = 
-                new FileInputStream("/var/www/browser-info.txt");
-        InputStreamReader isr = new InputStreamReader(fis);
-        BufferedReader br = new BufferedReader(isr);
+        EasyFileReader ezr = new EasyFileReader("/var/www/browser-info.txt");
         // because the suite name is used as part of a Javascript function 
         // name in the HTML results, it cannot have '-'s or '.'s. Only '_'s
-        String browserinfo = br.readLine().trim().replace(' ', '_');
-        br.close();
-        isr.close();
-        fis.close();
-        String suite_name = browserinfo + "_OS_" + 
-                System.getProperty("os.name") + 
-                "_ver_" + System.getProperty("os.version");
+        String browserinfo = ezr.readLine().trim().replace(' ', '_');
+        ezr.close();
+
+        String suite_name = "_" + fail_pct + "pct_fail";
+        if (fail_pct.equals("0")) {
+            suite_name = "_all_pass";
+        }
+        String osname = System.getProperty("os.name");
+        String brname = "Firefox";
+        if (browserinfo.contains("Chrome")) {
+            brname = "Chrome";
+        }
+        suite_name = brname + "_OS_" + osname + suite_name; 
         suite_name = suite_name.replace('-', '_');
         suite_name = suite_name.replace('.', '_');
+        suite_name = suite_name.replace(' ', '_');
         curxml.setName(suite_name);
-        testng.setDefaultSuiteName(curxml.getName());
-        curtest.setName("test.ChemRxnTest");
+        rt.setDefaultSuiteName(curxml.getName());
+        curtest.setName("test.ChemRxnTest " + browserinfo + ", OS " + 
+                osname + " ver " + System.getProperty("os.version"));
         curtest.setSuite(curxml);
         curxml.setTests(Arrays.asList(curtest));
         curxml.setParameters(suiteMetaDataMap);
-        testng.setUseDefaultListeners(false);
-        testng.setXmlSuites(Arrays.asList(curxml));
+        rt.setXmlSuites(Arrays.asList(curxml));
 
-        testng.setOutputDirectory("/var/www/testlogs/" + curtestdir);
+        rt.setOutputDirectory("/var/www/testlogs/" + curtestdir);
 
-        testng.run();
+        rt.run();
         
         resp.sendRedirect("https://bbaero.freeddns.org/testlogs/" + 
                 curtestdir + "/index.html");
