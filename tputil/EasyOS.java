@@ -68,7 +68,11 @@ public class EasyOS {
      */
     public static void main(String args[]) {
         try {
-            String pna = String.join(" ", args);
+            String pna = "";
+            for (int i=0; i < args.length; i++) {
+                pna += args[i] + " ";
+            }
+            pna = pna.trim();
             System.out.println("Running '" + pna + "' gives:");
             Process proc = EasyOS.runProcess(pna, true);
             BufferedReader br = new BufferedReader(new InputStreamReader(
