@@ -10,13 +10,13 @@ public class EasyOS {
     public static String sep = System.getProperty("file.separator");
     
     public static boolean isWin() {
-        return osname.equals("Windows");
+        return osname.startsWith("Windows");
     }
     
     public static String getHomeDir() {
         String rv = "";
         try {
-            if (osname.equals("Windows")) {
+            if (isWin()) {
                 rv = System.getenv("HOMEDRIVE") + System.getenv("HOMEPATH");
             } else {
                 rv = System.getenv("HOME");

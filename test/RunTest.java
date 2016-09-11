@@ -35,7 +35,7 @@ public class RunTest extends TestNG {
         
         @Parameter(names = "--dbprops",
                 description = "Test DB connection info file")
-        private String dbpropsfile = "<hd>/webcli.props";
+        private String dbpropsfile = "<hd>/gitrepo/tutor-prez/test/db.props";
         
         @Parameter(names = {"--debug", "-d"}, description = "Debug mode")
         private boolean debug = false;
@@ -48,8 +48,8 @@ public class RunTest extends TestNG {
             jc.usage(usage_text);
             int offset;
             usage_text = usage_text.insert(7, "\n "); // 7 = len of "Usage:"
-            String args_template = "<class> <suffix> [<pname>=<pval>]\n       " +
-                    "[<pname=<pval>] ....";
+            String args_template = "<class> <suffix> [<pname>=<pval>]\n" +
+                    "       [<pname=<pval>] ....";
             String rt_desc = "\nRuns <class> with suite name <browser>_OS_<os>_<suffix>\n" +
                     "\nArguments (* - required):\n=========================\n" +
                     "* <class> - name of test class that implements TestNG annotations\n" +
@@ -118,7 +118,11 @@ public class RunTest extends TestNG {
                 wcpropsfile = wcpropsfile.replace("<hd>", hdir);
                 wcpropsfile = wcpropsfile.replace("/", EasyOS.sep);
             }
+            System.setProperty("tptest.wcprop", wcpropsfile);
             
+            if (EasyOS.isWin()) {
+                dbpropsfile = dbpropsfile.replace("gitrepo/", "");
+            }
             if (dbpropsfile.startsWith("<hd>")) {
                 dbpropsfile = dbpropsfile.replace("<hd>", hdir);
                 dbpropsfile = dbpropsfile.replace("/", EasyOS.sep);
@@ -178,9 +182,9 @@ public class RunTest extends TestNG {
                 if (brcmd.length() > 0) {
                     browserinfo = EasyOS.runPrStrOut(brcmd);
                 } else {
-                    String chromeIconXml = "\"C:/Program Files (x86)/" + 
+                    String chromeIconXml = "C:/Program Files (x86)/" + 
                             "Google/Chrome/Application/" + 
-                            "chrome.VisualElementsManifest.xml\"";
+                            "chrome.VisualElementsManifest.xml";
                     chromeIconXml.replace("/", EasyOS.sep);
                     EasyFileReader ezr = new EasyFileReader(chromeIconXml);
                     String cl = ezr.readLine().trim();
@@ -188,9 +192,9 @@ public class RunTest extends TestNG {
                         cl = ezr.readLine().trim();
                     }
                     ezr.close();
-                    String rawcv = new StringTokenizer(cl,"=").nextToken();
+                    String rawcv = cl.split("=")[1];
                     browserinfo = "Google Chrome " + 
-                        new StringTokenizer(rawcv, EasyOS.sep).nextToken();
+                            rawcv.substring(0, rawcv.indexOf(EasyOS.sep));
                 }
             } catch (Throwable thr) {
                 System.err.println("*** Did not find browserinfo!!");
