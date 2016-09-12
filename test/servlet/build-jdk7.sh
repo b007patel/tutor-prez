@@ -9,6 +9,11 @@ if [ "`uname -s`" == "Linux" ]; then
 fi
 HOMEDIR=`ls -d ~`
 
+dbg_flag=""
+if [ -n "${1}" ]; then
+    dbg_flag="-g -sourcepath /home/ubuntu/gitrepo/tutor-prez"
+fi
+
 pushd ~/gitrepo/tutor-prez
-${jdk7dir}/bin/javac -cp "${HOMEDIR}/java-jars/selenium-server-standalone-2.53.1.jar:${HOMEDIR}/java-jars/jsoup-1.9.2.jar:${HOMEDIR}/java-jars/mysql-connector-java-5.1.17.jar:." tputil/*.java test/*.java test/pageobjects/*.java test/servlet/*.java
+${jdk7dir}/bin/javac ${dbg_flag} -cp "${HOMEDIR}/java-jars/selenium-server-standalone-2.53.1.jar:${HOMEDIR}/java-jars/jsoup-1.9.2.jar:${HOMEDIR}/java-jars/mysql-connector-java-5.1.17.jar:." tputil/*.java test/*.java test/pageobjects/*.java test/servlet/*.java
 popd

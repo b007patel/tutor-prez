@@ -8,11 +8,11 @@ public class EasyOS {
     public static String osname = System.getProperty("os.name");
     public static String osver = System.getProperty("os.version");
     public static String sep = System.getProperty("file.separator");
-    
+
     public static boolean isWin() {
         return osname.startsWith("Windows");
     }
-    
+
     public static String getHomeDir() {
         String rv = "";
         try {
@@ -24,11 +24,11 @@ public class EasyOS {
         } catch (Throwable thr) {
             thr.printStackTrace();
         }
-        
+
         return rv;
     }
-    
-    public static Process runProcess(String proc_n_args, 
+
+    public static Process runProcess(String proc_n_args,
             boolean merge_err) throws IOException {
         ArrayList<String> pbargs = new ArrayList<String>();
         pbargs.addAll(Arrays.asList(proc_n_args.split(" ")));
@@ -43,8 +43,7 @@ public class EasyOS {
         pb.redirectErrorStream(merge_err);
         return pb.start();
     }
-    
-    
+
     public static String runPrStrOut(String proc_n_args)
             throws IOException, InterruptedException {
         String rv = "";
@@ -60,10 +59,10 @@ public class EasyOS {
                 prc.waitFor());
         return rv.trim();
     }
-    
+
     /**
      * Unit testing stub
-     * 
+     *
      * @param args
      */
     public static void main(String args[]) {
@@ -90,6 +89,6 @@ public class EasyOS {
             System.err.println(EasyOS.runPrStrOut(pna));
         } catch (Throwable thr) {
             thr.printStackTrace();
-        } 
+        }
     }
 }

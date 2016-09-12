@@ -4,6 +4,12 @@ import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
+import java.sql.Connection;
+import java.sql.SQLException;
+import javax.sql.DataSource;
+import javax.naming.InitialContext;
+import javax.naming.Context;
+
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -25,13 +31,29 @@ public class TestRunnerServlet extends HttpServlet {
      */
     private static final long serialVersionUID = 5236440105614337841L;
 
-    protected void doGet(HttpServletRequest req, 
-            HttpServletResponse resp) throws ServletException, 
+    public static Connection getConnection() {
+        Connection conn = null;
+        try {
+            // Obtain our environment naming context
+            Context initCtx = new InitialContext();
+            Context envCtx = (Context) initCtx.lookup("java:comp/env");
+
+            // Look up our data source
+            DataSource ds = (DataSource) envCtx.lookup("jdbc/ChemTestDB");
+            conn = ds.getConnection();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return conn;
+    }
+
+    protected void doGet(HttpServletRequest req,
+            HttpServletResponse resp) throws ServletException,
             IOException {
         resp.setContentType("text/html");
-        String fail_pct=req.getParameter("pct");
+        String fail_pct = req.getParameter("pct");
 
-        // for called test class(es). May be removed or replaced with 
+        // for called test class(es). May be removed or replaced with
         // different RunTest methods
         System.setProperty("tptest.wcprop", "/var/lib/tomcat7/webcli.props");
         System.setProperty("tptest.dbprop", "/var/lib/tomcat7/db.props");
@@ -49,12 +71,13 @@ public class TestRunnerServlet extends HttpServlet {
         XmlSuite curxml = new XmlSuite();
         XmlTest curtest = new XmlTest();
         curtest.addParameter("fail_pct", fail_pct);
-        HashMap<String, String> suiteMetaDataMap = 
+        curtest.addParameter("servletCalled", "true");
+        HashMap<String, String> suiteMetaDataMap =
                 new HashMap<String, String>();
         curtest.setClasses(Arrays.asList(new XmlClass(ChemRxnTest.class)));
 
         EasyFileReader ezr = new EasyFileReader("/var/www/browser-info.txt");
-        // because the suite name is used as part of a Javascript function 
+        // because the suite name is used as part of a Javascript function
         // name in the HTML results, it cannot have '-'s or '.'s. Only '_'s
         String browserinfo = ezr.readLine().trim().replace(' ', '_');
         ezr.close();
@@ -68,13 +91,13 @@ public class TestRunnerServlet extends HttpServlet {
         if (browserinfo.contains("Chrome")) {
             brname = "Chrome";
         }
-        suite_name = brname + "_OS_" + osname + suite_name; 
+        suite_name = brname + "_OS_" + osname + suite_name;
         suite_name = suite_name.replace('-', '_');
         suite_name = suite_name.replace('.', '_');
         suite_name = suite_name.replace(' ', '_');
         curxml.setName(suite_name);
         rt.setDefaultSuiteName(curxml.getName());
-        curtest.setName("test.ChemRxnTest " + browserinfo + ", OS " + 
+        curtest.setName("test.ChemRxnTest " + browserinfo + ", OS " +
                 osname + " ver " + System.getProperty("os.version"));
         curtest.setSuite(curxml);
         curxml.setTests(Arrays.asList(curtest));
@@ -84,9 +107,9 @@ public class TestRunnerServlet extends HttpServlet {
         rt.setOutputDirectory("/var/www/testlogs/" + curtestdir);
 
         rt.run();
-        
-        resp.sendRedirect("https://bbaero.freeddns.org/testlogs/" + 
+
+        resp.sendRedirect("https://bbaero.freeddns.org/testlogs/" +
                 curtestdir + "/index.html");
     }
-    
+
 }

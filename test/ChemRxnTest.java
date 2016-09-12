@@ -1,9 +1,10 @@
-// Modified example code from 
+// Modified example code from
 // >> http://toolsqa.com/selenium-webdriver/page-object-pattern-model-page-factory/
 // accessed on Aug 23, 2016
 package test;
 
 import test.pageobjects.ChemRxnBalancer_PG_POF;
+import test.servlet.TestRunnerServlet;
 
 import java.io.FileInputStream;
 import java.sql.*;
@@ -13,13 +14,13 @@ import java.util.concurrent.*;
 import org.openqa.selenium.*;
 import org.openqa.selenium.support.PageFactory;
 import org.testng.annotations.*;
-import org.jsoup.nodes.*;
-import org.jsoup.*;
+import org.jsoup.nodes.Document;
+import org.jsoup.Jsoup;
 
 /* TODO:
  - get WebDriver "dynamically" (currently working with props file/-D switch
    Maybe use DB table based on hostname later?)
- - get full suite/case names into TestNG html output in test-output 
+ - get full suite/case names into TestNG html output in test-output
    directory via reporter classes
  - add DB-based TestNG reporter classes*/
 
@@ -33,9 +34,10 @@ public class ChemRxnTest {
     ChemRxnBalancer_PG_POF CRBPage;
     PreparedStatement vsteps_ps = null, vrxns_ps = null;
     ArrayList<String> vs_types, suite_descs;
-    
+
     public ChemRxnTest() {
         super();
+        dbg_out = "";
     }
 
     private void verifyHTML(String ehtml, String ihtml, String failstr) {
@@ -47,15 +49,15 @@ public class ChemRxnTest {
         System.out.println(inp_doc.toString());*/
         assert exp_doc.toString().equals(inp_doc.toString()) : failstr;
     }
-    
-    private void checkTest(PreparedStatement vrps, PreparedStatement vsps, 
+
+    private void checkTest(PreparedStatement vrps, PreparedStatement vsps,
            int cid) throws SQLException {
         String vrtext = "", vstype = "", vstext = "";
         int rxn_type = -1;
         String exp_html = "", inp_html = "", failstr = "";
         WebElement we = null;
         boolean firstStep = true;
-        
+
         vrps.setInt(1, cid);
         ResultSet vrrs = vrps.executeQuery();
         while (vrrs.next()) {
@@ -74,7 +76,7 @@ public class ChemRxnTest {
             inp_html = we.getAttribute("innerHTML").trim();
         }
         this.verifyHTML(exp_html, inp_html, failstr);
-        
+
         // if cid is in cases_to_fail, then mess up vsrs' output
         // to cause a failure
         vsps.setInt(1, cid);
@@ -84,7 +86,7 @@ public class ChemRxnTest {
             vstext = vsrs.getString("vs_text");
             if (vstype.equals("Error")) {
                 //
-            } else if (vstype.equals("Step") || 
+            } else if (vstype.equals("Step") ||
                     vstype.equals("Extra Step")) {
                 if (firstStep) {
                     String extra_name = "";
@@ -94,7 +96,7 @@ public class ChemRxnTest {
                         we = CRBPage.div_ua_steps;
                         extra_name = "Extra ";
                     }
-                    assert we.isEnabled() : extra_name + "Steps division " + 
+                    assert we.isEnabled() : extra_name + "Steps division " +
                         "not found!!";
                 }
                 String[] raw_step = vstext.split("\\|");
@@ -113,18 +115,18 @@ public class ChemRxnTest {
                 sym = raw_wks[1];
                 rxcnt = Integer.parseInt(raw_wks[2]);
                 prcnt = Integer.parseInt(raw_wks[3]);
-                String exp_strs[] = CRBPage.formatWksRow(step_num, sym, 
+                String exp_strs[] = CRBPage.formatWksRow(step_num, sym,
                         rxcnt, prcnt);
                 WebElement inp_wks = CRBPage.getWorksheet(step_num);
                 String exp_hdr = exp_strs[0];
                 String inp_hdr_extra = inp_wks.getAttribute(
                         "outerHTML").trim();
-                assert inp_hdr_extra.startsWith(exp_hdr) : "Worksheet " + 
+                assert inp_hdr_extra.startsWith(exp_hdr) : "Worksheet " +
                         "for step " + raw_wks[0] + " not found!!";
-                failstr = "Worksheet row for '" + sym + "' in step " + 
+                failstr = "Worksheet row for '" + sym + "' in step " +
                         raw_wks[0] + "'s sheet not found!!";
                 exp_html = exp_strs[1];
-                inp_html = inp_wks.findElement(By.id("wks_st" + 
+                inp_html = inp_wks.findElement(By.id("wks_st" +
                         raw_wks[0] + "_" + sym)).getAttribute(
                         "innerHTML").trim();
                 inp_html = "<table>" + inp_html + "</table>";
@@ -132,12 +134,23 @@ public class ChemRxnTest {
             this.verifyHTML(exp_html, inp_html, failstr);
         }
     }
-    
+
+    private void connectToTestDB(boolean inSC) throws Exception {
+        Connection conn = null;
+
+        if (ChemRxnTest.dbg_out == null) ChemRxnTest.dbg_out = "";
+        if (inSC) {
+            TestDB.setConnection(TestRunnerServlet.getConnection());
+        } else {
+            TestDB.connect();
+        }
+    }
+
     @BeforeTest
-    @Parameters ( {"fail_pct"} ) 
-    public void beforeTest(int failpct) throws Throwable {
+    @Parameters ( {"fail_pct", "servletCalled"} )
+    public void beforeTest(int failpct, boolean inSC) throws Throwable {
         // use a Java cmd line -D property to set props file
-        String webclipropsfile = System.getProperty("tptest.wcprop", 
+        String webclipropsfile = System.getProperty("tptest.wcprop",
                 System.getenv("HOME") + "/webcli.props");
 
         Properties webcliprops = new Properties();
@@ -146,37 +159,37 @@ public class ChemRxnTest {
 
         drvClassName = webcliprops.getProperty("web_driver_class");
         try {
-            drvClass = 
+            drvClass =
                 ClassLoader.getSystemClassLoader().loadClass(drvClassName);
         } catch (ClassNotFoundException cnfe) {
             drvClass = null;
         }
-        TestDB.connect();
-        vrxns_ps = TestDB.prepStmt("select reaction_type, vr_text " + 
+        connectToTestDB(inSC);
+        vrxns_ps = TestDB.prepStmt("select reaction_type, vr_text " +
                 "from verify_reaction where case_id = ?");
-        vsteps_ps = TestDB.prepStmt("select vs_type_id, vs_text " + 
+        vsteps_ps = TestDB.prepStmt("select vs_type_id, vs_text " +
                 "from verify_step where case_id = ?");
-        ResultSet vstypes_rs = TestDB.execSql("select " + 
+        ResultSet vstypes_rs = TestDB.execSql("select " +
                 "type_id, type_name from verify_type");
         vs_types = new ArrayList<String>();
         vs_types.add("");
         while (vstypes_rs.next()) {
-            vs_types.add(vstypes_rs.getInt("type_id"), 
+            vs_types.add(vstypes_rs.getInt("type_id"),
                     vstypes_rs.getString("type_name"));
         }
-        ResultSet suitedescs_rs = TestDB.execSql("select " + 
+        ResultSet suitedescs_rs = TestDB.execSql("select " +
                 "suite_id, suite_desc from test_suite");
         suite_descs = new ArrayList<String>();
         suite_descs.add("");
         while (suitedescs_rs.next()) {
-            suite_descs.add(suitedescs_rs.getInt("suite_id"), 
+            suite_descs.add(suitedescs_rs.getInt("suite_id"),
                     suitedescs_rs.getString("suite_desc"));
         }
-        
+
         // choose random failing cases if requested
         cases_to_fail = new ArrayList<Integer>();
         if (failpct < 1) return;
-        
+
         ResultSet crs = TestDB.execSql("select case_id from test_case");
         while (crs.next()) {
             cases_to_fail.add(Integer.valueOf(crs.getInt("case_id")));
@@ -188,13 +201,13 @@ public class ChemRxnTest {
         int delindex = -1;
         for (int i=0; i < casecnt; i++) {
             // delete a random element from cases_to_fail
-            delindex = (int)Math.round(Math.random() * Math.abs(totcases - 
+            delindex = (int)Math.round(Math.random() * Math.abs(totcases -
                     tmplist.size())) - 1;
             if (delindex < 0) delindex = 0;
             tmplist.add(cases_to_fail.get(delindex));
             cases_to_fail.remove(delindex);
         }
-        
+
         cases_to_fail.removeAll(cases_to_fail);
         cases_to_fail.addAll(tmplist);
         Collections.sort(cases_to_fail);
@@ -205,7 +218,7 @@ public class ChemRxnTest {
             ChemRxnTest.dbg_out  += String.format("CID to change: %d\n", cidint.intValue());
         }*/
     }
-    
+
     @BeforeMethod
     public void beforeMethod() throws Throwable {
         if (drvClass != null) {
@@ -225,11 +238,11 @@ public class ChemRxnTest {
         drv.get("https://bbaero.freeddns.org/tutor-prez/web/chem/balance.php");
         CRBPage = PageFactory.initElements(drv, ChemRxnBalancer_PG_POF.class);
     }
-    
+
     @Test(dataProvider="fromDB", dataProviderClass=TestDB.Provider.class)
-    public void test(int sid, int cid, String case_desc, 
+    public void test(int sid, int cid, String case_desc,
                 String case_exec) throws Throwable {
-        System.out.format("Executing suite %d: %s, case %d: %s\n", sid, 
+        System.out.format("Executing suite %d: %s, case %d: %s\n", sid,
                 suite_descs.get(sid), cid, case_desc);
         CRBPage.txt_Reaction.sendKeys(case_exec);
         if (cid % 2 == 0) {
@@ -239,21 +252,17 @@ public class ChemRxnTest {
         }
         this.checkTest(vrxns_ps, vsteps_ps, cid);
     }
-    
+
     @AfterMethod
     public void afterMethod() {
         drv.quit();
     }
-    
+
     @AfterTest
     public void afterTest() {
-        try {
-            TestDB.conn.close();
-        } catch (SQLException sqle) {
-            // log conn end error(s)?
-        }
+        TestDB.cleanup();
         System.out.println("debug output:\n**********");
         System.out.println(ChemRxnTest.dbg_out);
     }
-    
+
 }

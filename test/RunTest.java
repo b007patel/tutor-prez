@@ -28,21 +28,21 @@ public class RunTest extends TestNG {
 
         @Parameter(names = "--logdir", description = "Test log directory")
         private String logdir = "";
-        
-        @Parameter(names = "--wcprops", 
+
+        @Parameter(names = "--wcprops",
                 description = "Selenium web driver class info file")
         private String wcpropsfile = "<hd>/webcli.props";
-        
+
         @Parameter(names = "--dbprops",
                 description = "Test DB connection info file")
         private String dbpropsfile = "<hd>/gitrepo/tutor-prez/test/db.props";
-        
+
         @Parameter(names = {"--debug", "-d"}, description = "Debug mode")
         private boolean debug = false;
-        
+
         @Parameter(names = {"--help", "-h"}, description = "Show usage", help=true)
         private boolean showHelp = false;
-        
+
         private static void showUsage(Throwable thr) {
             StringBuilder usage_text = new StringBuilder("\n");
             jc.usage(usage_text);
@@ -70,11 +70,11 @@ public class RunTest extends TestNG {
             }
             System.exit(1);
         }
-        
+
         private static void showUsage() {
             showUsage(null);
         }
-        
+
         public void run(String args[]) {
 
             String hdir = EasyOS.getHomeDir();
@@ -84,26 +84,26 @@ public class RunTest extends TestNG {
             if (showHelp) {
                 showUsage();
             }
-            
+
             if (args.length < 2) {
                 System.err.println("\n*** <testClass> and <suite_name> must be given!");
                 showUsage();
             }
-            
+
             String testcls = args[0];
             String suite_suffix = args[1];
             Class<?> testClass = null;
-            
+
             try {
-                testClass = 
+                testClass =
                     ClassLoader.getSystemClassLoader().loadClass(testcls);
             } catch (ClassNotFoundException cnfe) {
                 System.err.format("\n*** Test class '%s' not found!\n", testcls);
                 System.err.println("*** If the class name is correct, check classpath!");
                 showUsage();
             }
-            
-            SimpleDateFormat sdf = 
+
+            SimpleDateFormat sdf =
                     new SimpleDateFormat("yyyy-MM-dd-HH_mm-ss");
             Date now = new Date();
             String curtestdir = sdf.format(now);
@@ -113,13 +113,13 @@ public class RunTest extends TestNG {
             } else {
                 rt.setOutputDirectory(logdir);
             }
-            
+
             if (wcpropsfile.startsWith("<hd>")) {
                 wcpropsfile = wcpropsfile.replace("<hd>", hdir);
                 wcpropsfile = wcpropsfile.replace("/", EasyOS.sep);
             }
             System.setProperty("tptest.wcprop", wcpropsfile);
-            
+
             if (EasyOS.isWin()) {
                 dbpropsfile = dbpropsfile.replace("gitrepo/", "");
             }
@@ -128,15 +128,15 @@ public class RunTest extends TestNG {
                 dbpropsfile = dbpropsfile.replace("/", EasyOS.sep);
             }
             System.setProperty("tptest.dbprop", dbpropsfile);
-            
+
             XmlSuite curxml = new XmlSuite();
             XmlTest curtest = new XmlTest();
-            // for all the cmd line test parms, add parameters to TestNG 
+            // for all the cmd line test parms, add parameters to TestNG
             // XmlTest instance
             if (args.length > 2) {
                 for (int parm=2; parm < args.length; parm++) {
                     if (!args[parm].contains("=")) {
-                        System.out.format(">> %s '%s' was ignored.\n", 
+                        System.out.format(">> %s '%s' was ignored.\n",
                                 "Warning! Parameter", args[parm]);
                         System.out.format(">> %s %s\n\n", "Not of the form",
                                 "<parm>=<value>");
@@ -146,18 +146,26 @@ public class RunTest extends TestNG {
                     }
                 }
             }
+            // if servletCalled is not expressly set to false, make it false
+            Map<String, String> parm_map = curtest.getLocalParameters();
+            if (!parm_map.containsKey("servletCalled")) {
+                curtest.addParameter("servletCalled", "false");
+            } else if (parm_map.get("servletCalled") != "false") {
+                parm_map.put("servletCalled", "false");
+                curtest.setParameters(parm_map);
+            }
             curtest.setClasses(Arrays.asList(new XmlClass(testClass)));
-    
+
             String browserinfo = "__unk__";
             String brcmd = "", ff_cmd = "", chrome_cmd = "";
-           
+
             if (EasyOS.isWin()) {
-                ff_cmd = "\"C:/Program Files (x86)/Mozilla " + 
+                ff_cmd = "\"C:/Program Files (x86)/Mozilla " +
                     "Firefox/firefox.exe\" -v | more";
             } else {
                 chrome_cmd = "google-chrome -version";
             }
-            
+
             // read Web Driver class from a props file given on cmd line
             // or a default one
             String brname = "Firefox";
@@ -168,22 +176,22 @@ public class RunTest extends TestNG {
                 webcliprops.loadFromXML(fis);
                 drvClassName = webcliprops.getProperty("web_driver_class");
             } catch(Throwable thr) {
-                System.err.format("\n*** Web Driver class '%s' not found!\n", 
+                System.err.format("\n*** Web Driver class '%s' not found!\n",
                         drvClassName);
-                System.err.format("*** Looked for web driver name in '%s'", 
+                System.err.format("*** Looked for web driver name in '%s'",
                         wcpropsfile);
                 showUsage(thr);
             }
-            
+
             brcmd = ff_cmd;
             if (drvClassName.contains("Chrome")) brcmd = chrome_cmd;
-            
+
             try {
                 if (brcmd.length() > 0) {
                     browserinfo = EasyOS.runPrStrOut(brcmd);
                 } else {
-                    String chromeIconXml = "C:/Program Files (x86)/" + 
-                            "Google/Chrome/Application/" + 
+                    String chromeIconXml = "C:/Program Files (x86)/" +
+                            "Google/Chrome/Application/" +
                             "chrome.VisualElementsManifest.xml";
                     chromeIconXml.replace("/", EasyOS.sep);
                     EasyFileReader ezr = new EasyFileReader(chromeIconXml);
@@ -193,37 +201,37 @@ public class RunTest extends TestNG {
                     }
                     ezr.close();
                     String rawcv = cl.split("=")[1];
-                    browserinfo = "Google Chrome " + 
+                    browserinfo = "Google Chrome " +
                             rawcv.substring(0, rawcv.indexOf(EasyOS.sep));
                 }
             } catch (Throwable thr) {
                 System.err.println("*** Did not find browserinfo!!");
                 showUsage(thr);
             }
-            
+
             String suite_name = "_" + suite_suffix;
-            suite_name = brname + "_OS_" + EasyOS.osname + suite_name; 
+            suite_name = brname + "_OS_" + EasyOS.osname + suite_name;
             suite_name = suite_name.replace('-', '_');
             suite_name = suite_name.replace('.', '_');
             suite_name = suite_name.replace(' ', '_');
             curxml.setName(suite_name);
             rt.setDefaultSuiteName(curxml.getName());
-            curtest.setName(testcls + " " + browserinfo + ", OS " + 
+            curtest.setName(testcls + " " + browserinfo + ", OS " +
                     EasyOS.osname + " ver " + EasyOS.osver);
             curtest.setSuite(curxml);
             curxml.setTests(Arrays.asList(curtest));
             rt.setXmlSuites(Arrays.asList(curxml));
-    
+
             rt.run();
-            
-            String resline = 
-              "****************************************" + 
+
+            String resline =
+              "****************************************" +
               "***********************************";
-            System.out.format("%s\nPlease check %s for test results\n%s\n\n", 
+            System.out.format("%s\nPlease check %s for test results\n%s\n\n",
                     resline, curtestdir, resline);
         }
     }
-    
+
     public RunTest(Object ... parms) {
         // since the subclassing can of worms has been opened,
         // maybe custom Reporter class(es) can replace some or all
@@ -258,5 +266,5 @@ public class RunTest extends TestNG {
             CLParser.showUsage(thr);
         }
     }
-    
+
 }
