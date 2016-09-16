@@ -41,6 +41,8 @@ public class TestRunnerServlet extends HttpServlet {
             // Look up our data source
             DataSource ds = (DataSource) envCtx.lookup("jdbc/ChemTestDB");
             conn = ds.getConnection();
+        } catch (SQLException sqle) {
+            sqle.printStackTrace();
         } catch (Exception e) {
             e.printStackTrace();
         }

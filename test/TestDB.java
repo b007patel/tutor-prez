@@ -21,10 +21,10 @@ public class TestDB {
             List<Object[]> rawrv = new ArrayList<Object[]>();
             Object[][] rv = null;
             //suite_qry = "select * from test_suite";
-            suite_qry = "select * from test_suite where suite_id = 1";
+            suite_qry = "select * from test_suite where suite_id < 3";
             suite_rs = TestDB.execSql(suite_qry);
             //sc_qry = "select case_id from suite_case where suite_id = ?";
-            sc_qry = "select case_id from suite_case where suite_id = ? and case_id < 3";
+            sc_qry = "select case_id from suite_case where suite_id = ? and case_id < 13";
             sc_ps = TestDB.prepStmt(sc_qry);
             case_qry = "select case_desc, case_exec from test_case " +
                     "where case_id = ?";
@@ -62,14 +62,13 @@ public class TestDB {
     public static int connect(String propsfile) throws IOException,
             SQLException, ClassNotFoundException {
         int rc = 0;
-        String dbDriverClass, dbms, server, port, dbname, baseurl;
+        String dbms, server, port, dbname, baseurl;
         if (propsfile.equals("")) {
             propsfile = System.getenv("HOME") + "/gitrepo/tutor-prez/test/db.props";
         }
         Properties connprops = new Properties();
         FileInputStream fis = new FileInputStream(propsfile);
         connprops.loadFromXML(fis);
-        dbDriverClass = connprops.getProperty("driver");
         dbms = connprops.getProperty("dbms");
         server = connprops.getProperty("server_name");
         port = connprops.getProperty("port_number");

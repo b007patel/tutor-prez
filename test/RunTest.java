@@ -184,7 +184,10 @@ public class RunTest extends TestNG {
             }
 
             brcmd = ff_cmd;
-            if (drvClassName.contains("Chrome")) brcmd = chrome_cmd;
+            if (drvClassName.contains("Chrome")) {
+                brcmd = chrome_cmd;
+                brname = "Chrome";
+            }
 
             try {
                 if (brcmd.length() > 0) {
@@ -255,6 +258,23 @@ public class RunTest extends TestNG {
 
     public static void main(String[] args) {
         try {
+            // replace java process code with code that looks for browser
+            // processes before testing. Those will be saved to a file list
+            // First check if file saving is possible (i.e., servlet or not)
+            // then killProcess can refer to that file to know which
+            // processes are excluded
+            Process curprc;
+            BufferedReader br;
+            String cl;
+            curprc = EasyOS.runProcess("ps -ef | grep 'java '" +
+                    " | grep 'selenium-server-standalone'" , false);
+            br = new BufferedReader(
+                     new InputStreamReader(curprc.getInputStream()));
+            cl = br.readLine();
+            while (cl != null) {
+                if (!cl.contains("grep")) EasyOS.javapid = EasyOS.getProcIDFrPS(cl, 0);
+                cl = br.readLine();
+            }
             RunTest.CLParser clp = new RunTest.CLParser();
             jc = new JCommander(clp, args);
             String clsname = clp.getClass().getName();

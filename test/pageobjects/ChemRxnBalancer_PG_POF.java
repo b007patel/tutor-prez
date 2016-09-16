@@ -3,6 +3,7 @@
 //        accessed on Aug 23, 2016
 package test.pageobjects;
 
+import java.sql.SQLException;
 import java.util.*;
 import java.io.*;
 
@@ -20,6 +21,8 @@ public class ChemRxnBalancer_PG_POF {
             Localization.init().ChemRxnBal_ST.get(Locale.US.toLanguageTag());
 
     private static Properties staticElems = new Properties();
+
+    private Random rnd;
 
     @FindBy(how = How.ID, using = "reaction")
     @CacheLookup
@@ -47,6 +50,23 @@ public class ChemRxnBalancer_PG_POF {
     @FindBy(how = How.ID, using = "extra_steps")
     public WebElement div_ua_steps;
 
+    public WebElement getReactionFromDiv(WebElement rdiv) {
+        WebElement rxn = null;
+        try {
+            rxn = rdiv.findElement(By.tagName("font"));
+        } catch (Exception e) {
+            /*List<WebElement> elems = rdiv.findElements(By.tagName("font"));
+            System.out.println("All font elems:");
+            System.out.println(elems);
+            System.out.println("------\n");
+            rxn = elems.get(0);*/
+            System.out.println("Can't find font tag!!");
+            e.printStackTrace();
+            //rxn = rdiv;
+        }
+        return rxn;
+    }
+
     public WebElement getStep(int stepnum) {
         String stepid = "step_";
         stepid += Integer.toString(stepnum);
@@ -73,6 +93,24 @@ public class ChemRxnBalancer_PG_POF {
     }
 
     /**
+     * Use input to make an error HTML element. Used by data-driven testing
+     * @param errtext desired step text
+     * @return an error HTML element based on errtext
+     */
+    public String formatErr(String errtext) {
+        return errtext;
+    }
+
+    /**
+     * Use input to make a warning HTML element. Used by data-driven testing
+     * @param warntext desired step text
+     * @return a warning HTML element based on warntext
+     */
+    public String formatWarn(String warntext) {
+        return warntext;
+    }
+
+    /**
      * Use input to make an HTML worksheet line item. Used by data-driven testing
      * @param wksid worksheet step ID
      * @param elem chemical element's symbol
@@ -93,14 +131,172 @@ public class ChemRxnBalancer_PG_POF {
         return rv;
     }
 
+    /**
+     * Causes failures during Chem Reaction Balancer testing by returning
+     * an incorrect set of expected data. The data changes randomly.
+     *
+     * Useful for demonstrating or testing test failure logging gear.
+     *
+     * @param cid - test case ID of the desired failing case
+     * @param stype_id - verify step type of the specific failing step
+     * @param dbstep - current "correct" expected output
+     * @return
+     * @throws SQLException
+     */
+    public String causeFailure(Integer cid, Integer stype_id, String dbstep)
+            throws SQLException {
+        String rv = dbstep, sterm;
+        int failtype = rnd.nextInt(3);
+        int tpos;
+
+        // double-check resources/data/<dbms>/test_data.sql to confirm
+        // correct values of vs_type_id for switch (stype_id) statement
+        switch (stype_id) {
+            case 0:
+                sterm = "cpd_";
+                switch (failtype) {
+                    case 0: //reaction
+                        rv = rv.replaceFirst(sterm, sterm + "Zn2");
+                        if (rv.equals(dbstep)) rv =
+                                rv.replaceFirst(" ", " _ ");
+                        break;
+                    case 1:
+                        tpos = rv.indexOf(sterm);
+                        if (tpos > 0) {
+                            int clq = rv.indexOf("\"", tpos);
+                            String delterm = rv.substring(tpos, clq);
+                            rv = rv.replaceFirst(delterm, sterm);
+                        } else {
+                            StringTokenizer st = new StringTokenizer(rv,
+                                    " ", true);
+                            int numtokens = st.countTokens(), skiptoken = 3;
+                            String ct;
+                            if (numtokens > 1) {
+                                try {
+                                    rv = "";
+                                    numtokens = 1;
+                                    // delete first token past "+" sign
+                                    while (st.hasMoreTokens()) {
+                                        ct = st.nextToken();
+                                        if (numtokens != skiptoken) {
+                                            rv += ct;
+                                        } else {
+                                            if (ct.equals(" ") ||
+                                                    ct.equals("+")) {
+                                                rv += ct;
+                                                skiptoken++;
+                                            }
+                                        }
+                                        numtokens++;
+                                    }
+                                } catch (Exception e) {
+                                    // should only happen if dbstep of form
+                                    // "<term> +"
+                                    numtokens = 1;
+                                }
+                            } else {
+                                rv = st.nextToken().substring(1);
+                            }
+                        }
+                        break;
+                    case 2:
+                        tpos = rv.indexOf(sterm) + sterm.length();
+                        String findterm = "", repterm = "";
+                        if (rv.indexOf(sterm) < 1) {
+                            tpos = 0;
+                        }
+                        findterm = rv.substring(tpos,  tpos + 2);
+                        String char2 = findterm.substring(1, 2);
+                        boolean onechar = char2.equals("(");
+                        if (!onechar) {
+                            onechar = ((char2.compareTo("0") >= 0) &&
+                                    (char2.compareTo("9") <= 0));
+                        }
+                        if (!onechar) {
+                            onechar = ((char2.compareTo("A") >= 0) &&
+                                    (char2.compareTo("Z") <= 0));
+                        }
+                        if (onechar) {
+                            findterm = findterm.substring(0, 1);
+                            repterm = "O";
+                            if (findterm.startsWith("O")) repterm = "S";
+                        } else {
+                            repterm = "Zn";
+                            if (findterm.equals("Zn")) repterm = "Mn";
+                        }
+                        rv = rv.replaceFirst(findterm, repterm);
+                        break;
+                    }
+                break;
+            case 1: case 2: //step and extrastep
+                sterm = "Consider compounds with";
+                String insterm = "Consider the compounds with";
+                String delterm = "Consider compounds";
+                String repterm = "Consider tragedies with";
+                if (rv.indexOf(sterm) < 0) {
+                    sterm = "balance";
+                    insterm = "the balance";
+                    delterm = "bale";
+                    repterm = "valence";
+                }
+                switch (failtype) {
+                    case 0:
+                        rv = rv.replaceFirst(sterm, insterm);
+                        break;
+                    case 1:
+                        rv = rv.replaceFirst(sterm, delterm);
+                        break;
+                    case 2:
+                        rv = rv.replaceFirst(sterm, repterm);
+                        break;
+                }
+                break;
+            case 3: //error
+                sterm = "is INVALID";
+                switch (failtype) {
+                    case 0:
+                        rv = rv.replaceFirst(sterm, "is kind of INVALID");
+                        break;
+                    case 1:
+                        rv = rv.replaceFirst(sterm, "is VALID");
+                        break;
+                    case 2:
+                        rv = rv.replaceFirst(sterm, "is invalid");
+                        break;
+            }
+            break;
+            case 5: //worksheet
+                switch (failtype) {
+                case 0:
+                    rv = rv.replaceFirst("<td class=\"num\">",
+                            "<td class=\"num\">#");
+                    break;
+                case 1:
+                    rv = rv.replaceFirst("<td class=\"num\">[1-9][0-9]*</td>",
+                            "<td class=\"num\"></td>");
+                    break;
+                case 2:
+                    rv = rv.replaceFirst("<td>X", "<td>Z");
+                    if (dbstep.equals(rv)) {
+                        rv = rv.replaceFirst("<td>[A-Z]", "<td>X");
+                    }
+                    break;
+            }
+            break;
+        }
+        return rv;
+    }
+
+    public void setRandomGen(Random rnd_in) {rnd = rnd_in;}
+
     public ChemRxnBalancer_PG_POF(WebDriver drv) throws BadPgObjException {
-        this.webdrv = drv;
+        webdrv = drv;
         try {
             staticElems.load(new StringReader(static_elem_tbl));
         } catch (IOException ioe) {
             // do nothing
         }
-        String cur_title = this.webdrv.getTitle();
+        String cur_title = webdrv.getTitle();
         //System.out.println("Title is: '" + cur_title + "'");
         if (!cur_title.equals(staticElems.get("title"))) {
             throw new BadPgObjException("Bad page title '" + cur_title + "'");
