@@ -135,7 +135,7 @@ public class EasyOS {
                     foundDriver = true;
                 } catch (NullPointerException npe) {
                     grepatt++;
-                    curprc.destroyForcibly();
+                    curprc.destroy();
                 }
             }
             if (!foundDriver) {

@@ -36,7 +36,7 @@ create table "verify_type" (
 
 create table "verify_reaction" (
     "vr_id" integer not null auto_increment primary key
-    comment 'Verification step PK',
+    comment 'Verification reaction row PK',
     "reaction_type" integer not null 
     comment 'Type of reaction: 1 for starting, 2 for balanced',
     "case_id" integer not null,

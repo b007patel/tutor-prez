@@ -286,6 +286,8 @@ class Equation {
                 $step_lev++;
             }
             $rawstr = trim($rawstr, "-");
+            $force_top = substr($rawstr, 0, 2) == "!!";
+            if ($force_top) $rawstr = substr($rawstr, 2);
             $step_parts = explode(self::STEPDELIM, $rawstr);
             $lev_diff = $step_lev - $cur_lev;
             $cl_arg = ($cur_lev >= 0) ? $cur_lev : 0;
@@ -297,7 +299,7 @@ class Equation {
                 $cur_lev = $step_lev;
             } else if ($lev_diff != 0) {
                 // if this is the last step, make it a top level step
-                if ($i == ($s_count - 1)) {
+                if (($i == ($s_count - 1)) || $force_top) {
                     $cl_lim = abs($step_lev - $cur_lev);
                     for ($close_lev=$cl_lim; $close_lev > 0; $close_lev--) {
                         $listchg .= str_repeat("\t", $close_lev)."</ul>\n";        
@@ -1298,9 +1300,10 @@ class Equation {
         } else {
             $reduction_factor = $this->reduceCoefficients();
             if ($reduction_factor > 1) {
-                $cur_step = "Coefficients reduced by common factor of ";
-                $cur_step .= $reduction_factor ."</li><li>";
-                $cur_step .= "A better coefficient sum could have been used ";
+                $cur_step = "!!Coefficients reduced by common factor of ";
+                $cur_step .= $reduction_factor;
+                $this->logStep($cur_step);
+                $cur_step = "!!A better coefficient sum could have been used ";
                 $cur_step .= "during balancing to get the lowest possible ";
                 $cur_step .= "integer coefficients.";
                 $this->logStep($cur_step);
