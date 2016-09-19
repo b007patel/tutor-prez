@@ -8,12 +8,20 @@ import test.servlet.TestRunnerServlet;
 import tputil.EasyOS;
 import tputil.EasyUtil;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.sql.*;
-import java.util.*;
+import java.util.Collections;
+import java.util.Properties;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Random;
 import java.util.concurrent.*;
 
 import org.openqa.selenium.*;
+import org.openqa.selenium.chrome.*;
+import org.openqa.selenium.remote.*;
+import org.openqa.selenium.remote.service.*;
 import org.openqa.selenium.support.PageFactory;
 import org.testng.annotations.*;
 import org.jsoup.nodes.Document;
@@ -33,12 +41,16 @@ public class ChemRxnTest {
          boolean assertsEnabled = false;
          assert assertsEnabled = true; // Intentional side effect!!!
          if (!assertsEnabled)
-         throw new RuntimeException("Asserts must be enabled!!!");
+                 throw new RuntimeException("Asserts must be enabled!!!");
      }
 
     static WebDriver drv;
     static String drvClassName;
     static String dbg_out;
+    private static ChromeDriverService cds;
+    private static DesiredCapabilities chrdc;
+    private static int case_fail_pct;
+    private static int case_run_pct;
     Class<?> drvClass;
     private ArrayList<Integer> cases_to_fail;
     private boolean wantFails;
@@ -50,7 +62,7 @@ public class ChemRxnTest {
 
     // Probably should make this value a public constant somewhere for all
     // classes using Selenium driver to see
-    private int defImpliedWait = 20;
+    private int defImpliedWait = 60;
     private int rxnDivWait = 2;
 
     public ChemRxnTest() {
@@ -61,9 +73,31 @@ public class ChemRxnTest {
 
     // this should be in another package visible to all classes using
     // Selenium
+    private ChromeDriverService startChromeDriverService() {
+        String chdrpath = "/usr/local/bin/chromedriver";
+        if (EasyOS.isWin()) {
+            chdrpath = "";
+        }
+        /*ChromeDriverService rv  = new ChromeDriverService.Builder()
+                .usingChromeDriverExecutable(new File(chdrpath))
+                .usingAnyFreePort()
+                .build();*/
+        ChromeDriverService rv = null;
+        try {
+            rv = new ChromeDriverService.Builder()
+                    .usingDriverExecutable(new File(chdrpath))
+                    .usingAnyFreePort()
+                    .build();
+            rv.start();
+        } catch (Exception e) {
+            EasyUtil.log("Cannot start ChromeDriverService!!!");
+            e.printStackTrace();
+        }
+        return rv;
+    }
+
     private WebDriver startWebDriver(Class<?> drvcl, String dc_name)
             throws Exception {
-        EasyUtil.startLogging();
         WebDriver wd = null;
         String drvexec = "";
         int att = 0, max_atts = 5;
@@ -72,15 +106,23 @@ public class ChemRxnTest {
         while (att < max_atts) {
             try {
                 if (drvcl != null) {
-                    wd = (WebDriver) drvcl.newInstance();
+                    if (cds != null) {
+                        wd = new RemoteWebDriver(cds.getUrl(), chrdc);
+                    } else  {
+                        wd = (WebDriver) drvcl.newInstance();
+                    }
                     return wd;
                 } else {
-                    // because a servlet container (e.g., Tomcat) uses a different
-                    // CL than getSystemClassLoader(), must expressly set driver
-                    // to one of ChromeDriver or FirefoxDriver
-                    if (dc_name.equals(
-                            "org.openqa.selenium.chrome.ChromeDriver")) {
-                        wd = new org.openqa.selenium.chrome.ChromeDriver();
+                    // because a servlet container (e.g., Tomcat) uses a
+                    // different CL than getSystemClassLoader(), must
+                    // expressly set driver to one of ChromeDriver or
+                    // FirefoxDriver
+                    if (dc_name.endsWith("ChromeDriver")) {
+                            if (cds != null) {
+                                wd = new RemoteWebDriver(cds.getUrl(),
+                                       DesiredCapabilities.chrome());
+                            }
+                        //wd = new org.openqa.selenium.chrome.ChromeDriver();
                     } else {
                         wd = new org.openqa.selenium.firefox.FirefoxDriver();
                     }
@@ -88,8 +130,7 @@ public class ChemRxnTest {
                 }
             } catch (Exception e) {
                 EasyUtil.log(String.format("+=+=+=+= chrome is hung!! kill attempt %d\n\n", att));
-                if (dc_name.equals(
-                        "org.openqa.selenium.chrome.ChromeDriver")) {
+                if (dc_name.endsWith("ChromeDriver")) {
                     drvexec = "chromedriver";
                 } else {
                     drvexec = "gecko?";
@@ -200,9 +241,19 @@ public class ChemRxnTest {
             try {
                 we = CRBPage.getReactionFromDiv(we);
                 inp_html = we.getAttribute("innerHTML").trim();
-            } catch (Exception e) {
-                excp_we = CRBPage.getReactionFromDiv(excp_we);
+            } catch (NoSuchElementException nsee) {
+                try {
+                    excp_we = CRBPage.getReactionFromDiv(excp_we);
+                } catch (Exception e) {
+                    EasyUtil.log("Unexpected exception looking for " +
+                            "alternate reaction div!");
+                    e.printStackTrace();
+                }
                 inp_html = excp_we.getAttribute("innerHTML").trim();
+            } catch (Exception e) {
+                EasyUtil.log("Unexpected exception looking for reaction " +
+                        "div!");
+                e.printStackTrace();
             }
             drv.manage().timeouts().implicitlyWait(defImpliedWait, TimeUnit.SECONDS);
             verifyHTML(exp_html, inp_html, failstr);
@@ -251,7 +302,7 @@ public class ChemRxnTest {
                 exp_html = CRBPage.formatErr(vstext);
                 if (!madeFailure && failed_stype == vstype_id) {
                     madeFailure = true;
-                    failstr = "Error template not found!";
+                    failstr = "Error message not found!";
                     exp_html = CRBPage.causeFailure(cid, vstype_id, exp_html);
                 }
             } else if (vstype.equals("Warning")) {
@@ -306,8 +357,12 @@ public class ChemRxnTest {
     }
 
     @BeforeTest
-    @Parameters ( {"fail_pct", "servletCalled"} )
-    public void beforeTest(int failpct, boolean inSC) throws Throwable {
+    @Parameters ( {"fail_pct", "run_pct", "servletCalled"} )
+    public void beforeTest(int failpct, int runpct, boolean inSC)
+            throws Exception {
+        EasyUtil.startLogging();
+        case_run_pct = runpct;
+        case_fail_pct = failpct;
         // use a Java cmd line -D property to set props file
         String webclipropsfile = System.getProperty("tptest.wcprop",
                 System.getenv("HOME") + "/webcli.props");
@@ -317,6 +372,19 @@ public class ChemRxnTest {
         webcliprops.loadFromXML(fis);
 
         drvClassName = webcliprops.getProperty("web_driver_class");
+        cds = null;
+        if (drvClassName.endsWith("ChromeDriver")) {
+            cds = startChromeDriverService();
+            chrdc = DesiredCapabilities.chrome();
+            HashMap<String, Object> chrcaps = new HashMap<String, Object>();
+            ArrayList<String> chrargs = new ArrayList<String>();
+            chrargs.add("--disable-extensions");
+            chrargs.add("--enable-low-res-tiling");
+            chrargs.add("--enable-lru-snapshot-cache");
+            chrargs.add("--use-simple-cache-backend");
+            chrcaps.put("args", chrargs);
+            chrdc.setCapability(ChromeOptions.CAPABILITY, chrcaps);
+        }
         try {
             drvClass =
                 ClassLoader.getSystemClassLoader().loadClass(drvClassName);
@@ -361,8 +429,8 @@ public class ChemRxnTest {
 
         pvs_ps = TestDB.prepStmt("select vs_type_id from verify_step " +
                 "group by case_id, vs_type_id having case_id=?");
-        //ResultSet crs = TestDB.execSql("select case_id from test_case");
-        ResultSet crs = TestDB.execSql("select case_id from test_case where case_id < 13");
+        ResultSet crs = TestDB.execSql("select case_id from test_case");
+        //ResultSet crs = TestDB.execSql("select case_id from test_case where case_id < 13");
         while (crs.next()) {
             cases_to_fail.add(Integer.valueOf(crs.getInt("case_id")));
         }
@@ -384,14 +452,14 @@ public class ChemRxnTest {
         Collections.sort(cases_to_fail);
         tmplist.removeAll(tmplist);
         // debug - confirm that random lists are generated
-        ChemRxnTest.dbg_out = "";
+        /*ChemRxnTest.dbg_out = "";
         for (Integer cidint : cases_to_fail) {
-            ChemRxnTest.dbg_out  += String.format("CID to change: %d\n", cidint.intValue());
-        }
+            dbg_out  += String.format("Overall CID to change: %d\n", cidint.intValue());
+        }*/
     }
 
     @BeforeMethod
-    public void beforeMethod() throws Throwable {
+    public void beforeMethod() throws Exception {
         drv = startWebDriver(drvClass, drvClassName);
         drv.manage().timeouts().pageLoadTimeout(30, TimeUnit.SECONDS);
         drv.manage().timeouts().implicitlyWait(defImpliedWait, TimeUnit.SECONDS);
@@ -400,9 +468,72 @@ public class ChemRxnTest {
         CRBPage.setRandomGen(rnd);
     }
 
-    @Test(dataProvider="fromDB", dataProviderClass=TestDB.Provider.class)
+    @DataProvider(name="fromSelf")
+    public Object[][] createData() throws Exception {
+        Object[][] all_c = TestDB.getAllCases();
+
+        if (case_run_pct == 100) return all_c;
+
+        dbg_out += "\n*************\n";
+
+        int numCasesRun = Math.round(all_c.length * case_run_pct / 100);
+        if (numCasesRun == all_c.length) numCasesRun--;
+        if (numCasesRun == 0) numCasesRun++;
+
+        int numFailedCases = Math.round(numCasesRun * case_fail_pct / 100);
+        // if number of cases to fail is the same as number of cases to run,
+        // then randomly determine if all cases should fail, or one case
+        // should pass
+        if (numFailedCases == numCasesRun) {
+            numFailedCases -= rnd.nextInt(2);
+        }
+        int failsToDel = cases_to_fail.size() - numFailedCases;
+        dbg_out += String.format("run: %d fail: %d failsToDel: %d\n\n", numCasesRun, numFailedCases, failsToDel);
+        for (int failToDel = 0; failToDel < failsToDel; failToDel++) {
+            cases_to_fail.remove(rnd.nextInt(cases_to_fail.size()));
+        }
+
+        Object[][] rv = new Object[numCasesRun][all_c[0].length];
+        ArrayList<Integer> case_pool = new ArrayList<Integer>();
+        ArrayList<Integer> run_cases = new ArrayList<Integer>();
+        Integer fr_all_c;
+        int curCase;
+
+        dbg_out += "-- case_pool has ";
+        for (curCase = 1; curCase <= all_c.length; curCase++) {
+            if (!cases_to_fail.contains(Integer.valueOf(curCase))) {
+                case_pool.add(Integer.valueOf(curCase));
+                dbg_out += String.format("%d, ", curCase);
+            }
+        }
+        dbg_out += "\n";
+        for (curCase = 0; curCase < (numCasesRun - numFailedCases);
+                curCase++) {
+            fr_all_c = case_pool.get(rnd.nextInt(case_pool.size()));
+            case_pool.remove(case_pool.indexOf(fr_all_c));
+            dbg_out += String.format("### added %d to run_cases\n", fr_all_c);
+            run_cases.add(fr_all_c);
+        }
+        dbg_out += "\n";
+        for (Integer cidint : cases_to_fail) {
+            dbg_out  += String.format("Revised CID to change: %d\n", cidint.intValue());
+        }
+        //for (curCase = 0; curCase < cases_to_fail.size(); curCase++) {
+        for (Integer cidint : cases_to_fail) {
+        //    run_cases.add(cases_to_fail.get(curCase));
+            run_cases.add(cidint);
+        }
+        Collections.sort(run_cases);
+        for (curCase = 0; curCase < numCasesRun; curCase++) {
+            rv[curCase] = all_c[run_cases.get(curCase).intValue() - 1];
+        }
+
+        return rv;
+    }
+
+    @Test(dataProvider="fromSelf")
     public void test(int sid, int cid, String case_desc,
-                String case_exec) throws Throwable {
+                String case_exec) throws Exception {
         System.out.format("Executing suite %d: %s, case %d: %s\n", sid,
                 suite_descs.get(sid), cid, case_desc);
         CRBPage.txt_Reaction.sendKeys(case_exec);
@@ -421,10 +552,11 @@ public class ChemRxnTest {
 
     @AfterTest
     public void afterTest() {
+        cds.stop();
         TestDB.cleanup();
         EasyUtil.stopLogging();
         System.out.println("debug output:\n**********");
-        System.out.println(ChemRxnTest.dbg_out);
+        System.out.println(dbg_out);
     }
 
 }

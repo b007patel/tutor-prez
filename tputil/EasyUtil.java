@@ -27,8 +27,8 @@ public class EasyUtil {
             ct = st.nextToken();
             foundNL = ct.equals("\n") || ct.equals("\r");
             if (cl.length() + ct.length() > maxlen || foundNL) {
-            	rv += cl;
-            	if (!foundNL) rv += br + "\n";
+                rv += cl;
+                if (!foundNL) rv += br + "\n";
                 cl = "";
             }
             cl += ct;
@@ -42,11 +42,19 @@ public class EasyUtil {
     }
 
     public static void startLogging() {
+        String logname = EasyOS.getHomeDir() + EasyOS.sep + "sel_testlog.txt";
         try {
-            logf = new PrintWriter(new FileOutputStream(EasyOS.getHomeDir() + EasyOS.sep + "sel_testlog.txt", true));
+            logf = new PrintWriter(new FileOutputStream(logname, true));
         } catch (Exception e) {
-            System.err.println("Cannot open log file!!");
-            e.printStackTrace();
+            // may be in servlet container. Try another directory
+            try {
+                logf = new PrintWriter(new FileOutputStream("/var/log/" +
+                        "tomcat7/sel_testlog.txt"));
+            } catch (Exception reale) {
+                System.err.println("Cannot open log file: " + logname + "!!");
+                reale.printStackTrace();
+                logf = new PrintWriter(System.err);
+            }
         }
     }
 

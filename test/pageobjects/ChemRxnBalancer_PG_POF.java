@@ -50,20 +50,9 @@ public class ChemRxnBalancer_PG_POF {
     @FindBy(how = How.ID, using = "extra_steps")
     public WebElement div_ua_steps;
 
-    public WebElement getReactionFromDiv(WebElement rdiv) {
-        WebElement rxn = null;
-        try {
-            rxn = rdiv.findElement(By.tagName("font"));
-        } catch (Exception e) {
-            /*List<WebElement> elems = rdiv.findElements(By.tagName("font"));
-            System.out.println("All font elems:");
-            System.out.println(elems);
-            System.out.println("------\n");
-            rxn = elems.get(0);*/
-            System.out.println("Can't find font tag!!");
-            e.printStackTrace();
-            //rxn = rdiv;
-        }
+    public WebElement getReactionFromDiv(WebElement rdiv)
+           throws Exception {
+        WebElement rxn = rdiv.findElement(By.tagName("font"));
         return rxn;
     }
 
@@ -252,16 +241,26 @@ public class ChemRxnBalancer_PG_POF {
                 }
                 break;
             case 3: //error
-                sterm = "is INVALID";
+                sterm = "eactant";
+                if (rv.contains(sterm)) {
+                    insterm = "eactingant";
+                    delterm = "eact";
+                    repterm = "idgeway";
+                } else {
+                    sterm = "roduct";
+                    insterm = "rovingduct";
+                    delterm = "rout";
+                    repterm = "erfect";
+                }
                 switch (failtype) {
                     case 0:
-                        rv = rv.replaceFirst(sterm, "is kind of INVALID");
+                        rv = rv.replaceFirst(sterm, insterm);
                         break;
                     case 1:
-                        rv = rv.replaceFirst(sterm, "is VALID");
+                        rv = rv.replaceFirst(sterm, delterm);
                         break;
                     case 2:
-                        rv = rv.replaceFirst(sterm, "is invalid");
+                        rv = rv.replaceFirst(sterm, repterm);
                         break;
             }
             break;

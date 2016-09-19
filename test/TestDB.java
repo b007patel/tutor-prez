@@ -8,47 +8,43 @@ import org.testng.annotations.*;
 
 public class TestDB {
 
-    public static class Provider {
+    public static Object[][] getAllCases() throws Exception {
+        ResultSet suite_rs = null, sc_rs = null, case_rs = null;
+        PreparedStatement sc_ps = null, case_ps= null;
+        String suite_qry = "", sc_qry = "", case_qry = "";
+        int suite_id = -1, case_id = -1;
+        String cdesc = "", cexec = "";
 
-        @DataProvider(name="fromDB")
-        public static Object[][] createData() throws Throwable {
-            ResultSet suite_rs = null, sc_rs = null, case_rs = null;
-            PreparedStatement sc_ps = null, case_ps= null;
-            String suite_qry = "", sc_qry = "", case_qry = "";
-            int suite_id = -1, case_id = -1;
-            String cdesc = "", cexec = "";
+        List<Object[]> rawrv = new ArrayList<Object[]>();
+        Object[][] rv = null;
+        suite_qry = "select * from test_suite";
+        //suite_qry = "select * from test_suite where suite_id < 3";
+        suite_rs = TestDB.execSql(suite_qry);
+        sc_qry = "select case_id from suite_case where suite_id = ?";
+        //sc_qry = "select case_id from suite_case where suite_id = ? and case_id < 13";
+        sc_ps = TestDB.prepStmt(sc_qry);
+        case_qry = "select case_desc, case_exec from test_case " +
+                "where case_id = ?";
+        case_ps = TestDB.prepStmt(case_qry);
 
-            List<Object[]> rawrv = new ArrayList<Object[]>();
-            Object[][] rv = null;
-            //suite_qry = "select * from test_suite";
-            suite_qry = "select * from test_suite where suite_id < 3";
-            suite_rs = TestDB.execSql(suite_qry);
-            //sc_qry = "select case_id from suite_case where suite_id = ?";
-            sc_qry = "select case_id from suite_case where suite_id = ? and case_id < 13";
-            sc_ps = TestDB.prepStmt(sc_qry);
-            case_qry = "select case_desc, case_exec from test_case " +
-                    "where case_id = ?";
-            case_ps = TestDB.prepStmt(case_qry);
+        while (suite_rs.next()) {
+            suite_id = suite_rs.getInt("suite_id");
+            sc_ps.setInt(1, suite_id);
+            sc_rs = sc_ps.executeQuery();
+            while (sc_rs.next()) {
+                case_id = sc_rs.getInt("case_id");
+                case_ps.setInt(1, case_id);
+                case_rs = case_ps.executeQuery();
+                case_rs.next();
+                cdesc = case_rs.getString("case_desc");
+                cexec = case_rs.getString("case_exec");
 
-            while (suite_rs.next()) {
-                suite_id = suite_rs.getInt("suite_id");
-                sc_ps.setInt(1, suite_id);
-                sc_rs = sc_ps.executeQuery();
-                while (sc_rs.next()) {
-                    case_id = sc_rs.getInt("case_id");
-                    case_ps.setInt(1, case_id);
-                    case_rs = case_ps.executeQuery();
-                    case_rs.next();
-                    cdesc = case_rs.getString("case_desc");
-                    cexec = case_rs.getString("case_exec");
-
-                    rawrv.add(new Object[]{suite_id, case_id, cdesc, cexec});
-                }
+                rawrv.add(new Object[]{suite_id, case_id, cdesc, cexec});
             }
-
-            rv = rawrv.toArray(new Object[rawrv.size()][rawrv.get(0).length]);
-            return rv;
         }
+
+        rv = rawrv.toArray(new Object[rawrv.size()][rawrv.get(0).length]);
+        return rv;
     }
 
     public static Connection conn;
