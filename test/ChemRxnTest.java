@@ -4,7 +4,8 @@
 package test;
 
 import test.pageobjects.ChemRxnBalancer_PG_POF;
-import test.servlet.TestRunnerServlet;
+import test.servlet.TestRunnerTask;
+//import test.servlet.TestRunnerServlet;
 import tputil.EasyOS;
 import tputil.EasyUtil;
 
@@ -30,9 +31,7 @@ import org.jsoup.Jsoup;
 /* TODO:
  - get WebDriver "dynamically" (currently working with props file/-D switch
    Maybe use DB table based on hostname later?)
- - add TestNG listener to update servlet calling page with running status
-   (i.e., "Done test x, done test y, etc)
- - add DB-based TestNG reporter classes*/
+*/
 
 public class ChemRxnTest {
 
@@ -49,8 +48,8 @@ public class ChemRxnTest {
     static String dbg_out;
     private static ChromeDriverService cds;
     private static DesiredCapabilities chrdc;
-    private static int case_fail_pct;
-    private static int case_run_pct;
+    private static int suite_fail_pct;
+    private static int suite_run_pct;
     Class<?> drvClass;
     private ArrayList<Integer> cases_to_fail;
     private boolean wantFails;
@@ -129,7 +128,8 @@ public class ChemRxnTest {
                     return wd;
                 }
             } catch (Exception e) {
-                EasyUtil.log(String.format("+=+=+=+= chrome is hung!! kill attempt %d\n\n", att));
+                EasyUtil.log(String.format("+=+=+=+= chrome is hung!! kill" +
+                        "attempt %d\n\n", att));
                 if (dc_name.endsWith("ChromeDriver")) {
                     drvexec = "chromedriver";
                 } else {
@@ -237,7 +237,8 @@ public class ChemRxnTest {
                 if (rxn_type == 2) we = CRBPage.div_balrxn;
                 excp_we = CRBPage.div_errors;
             }
-            drv.manage().timeouts().implicitlyWait(rxnDivWait, TimeUnit.SECONDS);
+            drv.manage().timeouts().implicitlyWait(
+                    rxnDivWait, TimeUnit.SECONDS);
             try {
                 we = CRBPage.getReactionFromDiv(we);
                 inp_html = we.getAttribute("innerHTML").trim();
@@ -255,7 +256,8 @@ public class ChemRxnTest {
                         "div!");
                 e.printStackTrace();
             }
-            drv.manage().timeouts().implicitlyWait(defImpliedWait, TimeUnit.SECONDS);
+            drv.manage().timeouts().implicitlyWait(
+                    defImpliedWait, TimeUnit.SECONDS);
             verifyHTML(exp_html, inp_html, failstr);
         }
 
@@ -350,19 +352,24 @@ public class ChemRxnTest {
 
     private void connectToTestDB(boolean inSC) throws Exception {
         if (inSC) {
-            TestDB.setConnection(TestRunnerServlet.getConnection());
+            TestDB.setConnection(TestRunnerTask.getConnection());
+            //TestDB.setConnection(TestRunnerServlet.getConnection());
         } else {
             TestDB.connect();
         }
     }
 
     @BeforeTest
-    @Parameters ( {"fail_pct", "run_pct", "servletCalled"} )
-    public void beforeTest(int failpct, int runpct, boolean inSC)
-            throws Exception {
+    @Parameters ( {"fail_pct", "run_pct", "from_case", "to_case",
+            "servletCalled"} )
+    public void beforeTest(int failpct, int runpct,
+            @Optional("1") int fromCase, @Optional("-1") int toCase,
+            boolean inSC) throws Exception {
         EasyUtil.startLogging();
-        case_run_pct = runpct;
-        case_fail_pct = failpct;
+        EasyUtil.log("servletCalled is " + (inSC?"TRUE":"FALSE"));
+        System.out.println("servletCalled is " + (inSC?"TRUE":"FALSE"));
+        suite_run_pct = runpct;
+        suite_fail_pct = failpct;
         // use a Java cmd line -D property to set props file
         String webclipropsfile = System.getProperty("tptest.wcprop",
                 System.getenv("HOME") + "/webcli.props");
@@ -435,7 +442,9 @@ public class ChemRxnTest {
             cases_to_fail.add(Integer.valueOf(crs.getInt("case_id")));
         }
         int totcases = cases_to_fail.size();
-        int casecnt = Math.round(totcases * failpct / 100);
+        // if you do not divide by a decimal, then integer division occurs.
+        // That operation truncates doubles/floats to longs/ints
+        int casecnt = (int)Math.round(totcases * failpct / 100.0);
         if (casecnt < 1) casecnt = 1;
         ArrayList<Integer> tmplist = new ArrayList<Integer>();
         int delindex = -1;
@@ -462,7 +471,8 @@ public class ChemRxnTest {
     public void beforeMethod() throws Exception {
         drv = startWebDriver(drvClass, drvClassName);
         drv.manage().timeouts().pageLoadTimeout(30, TimeUnit.SECONDS);
-        drv.manage().timeouts().implicitlyWait(defImpliedWait, TimeUnit.SECONDS);
+        drv.manage().timeouts().implicitlyWait(
+                defImpliedWait, TimeUnit.SECONDS);
         drv.get("https://bbaero.freeddns.org/tutor-prez/web/chem/balance.php");
         CRBPage = PageFactory.initElements(drv, ChemRxnBalancer_PG_POF.class);
         CRBPage.setRandomGen(rnd);
@@ -472,15 +482,16 @@ public class ChemRxnTest {
     public Object[][] createData() throws Exception {
         Object[][] all_c = TestDB.getAllCases();
 
-        if (case_run_pct == 100) return all_c;
+        if (suite_run_pct == 100) return all_c;
 
-        dbg_out += "\n*************\n";
-
-        int numCasesRun = Math.round(all_c.length * case_run_pct / 100);
+        /*dbg_out += "\n*************\n";*/
+        int numCasesRun =
+                (int)Math.round(all_c.length * suite_run_pct / 100.0);
         if (numCasesRun == all_c.length) numCasesRun--;
         if (numCasesRun == 0) numCasesRun++;
 
-        int numFailedCases = Math.round(numCasesRun * case_fail_pct / 100);
+        int numFailedCases = 
+                (int)Math.round(numCasesRun * suite_fail_pct / 100.0);
         // if number of cases to fail is the same as number of cases to run,
         // then randomly determine if all cases should fail, or one case
         // should pass
@@ -488,7 +499,7 @@ public class ChemRxnTest {
             numFailedCases -= rnd.nextInt(2);
         }
         int failsToDel = cases_to_fail.size() - numFailedCases;
-        dbg_out += String.format("run: %d fail: %d failsToDel: %d\n\n", numCasesRun, numFailedCases, failsToDel);
+        /*dbg_out += String.format("run: %d fail: %d failsToDel: %d\n\n", numCasesRun, numFailedCases, failsToDel)*/;
         for (int failToDel = 0; failToDel < failsToDel; failToDel++) {
             cases_to_fail.remove(rnd.nextInt(cases_to_fail.size()));
         }
@@ -499,24 +510,24 @@ public class ChemRxnTest {
         Integer fr_all_c;
         int curCase;
 
-        dbg_out += "-- case_pool has ";
+        /*dbg_out += "-- case_pool has ";*/
         for (curCase = 1; curCase <= all_c.length; curCase++) {
             if (!cases_to_fail.contains(Integer.valueOf(curCase))) {
                 case_pool.add(Integer.valueOf(curCase));
-                dbg_out += String.format("%d, ", curCase);
+                /*dbg_out += String.format("%d, ", curCase);*/
             }
         }
-        dbg_out += "\n";
+        /*dbg_out += "\n";*/
         for (curCase = 0; curCase < (numCasesRun - numFailedCases);
                 curCase++) {
             fr_all_c = case_pool.get(rnd.nextInt(case_pool.size()));
             case_pool.remove(case_pool.indexOf(fr_all_c));
-            dbg_out += String.format("### added %d to run_cases\n", fr_all_c);
+            /*dbg_out += String.format("### added %d to run_cases\n", fr_all_c);*/
             run_cases.add(fr_all_c);
         }
-        dbg_out += "\n";
+        /*dbg_out += "\n";*/
         for (Integer cidint : cases_to_fail) {
-            dbg_out  += String.format("Revised CID to change: %d\n", cidint.intValue());
+            /*dbg_out  += String.format("Revised CID to change: %d\n", cidint.intValue());*/
         }
         //for (curCase = 0; curCase < cases_to_fail.size(); curCase++) {
         for (Integer cidint : cases_to_fail) {
@@ -534,8 +545,6 @@ public class ChemRxnTest {
     @Test(dataProvider="fromSelf")
     public void test(int sid, int cid, String case_desc,
                 String case_exec) throws Exception {
-        System.out.format("Executing suite %d: %s, case %d: %s\n", sid,
-                suite_descs.get(sid), cid, case_desc);
         CRBPage.txt_Reaction.sendKeys(case_exec);
         if (cid % 2 == 0) {
             CRBPage.btn_Balance.click();

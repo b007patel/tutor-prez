@@ -5,7 +5,9 @@ import java.util.*;
 
 public class EasyOS {
 
-    public static String osname = System.getProperty("os.name");
+    private static String rawosname = System.getProperty("os.name");
+    public static String osname =
+            (rawosname.equals("Mac OS X")?"macOS":rawosname);
     public static String osver = System.getProperty("os.version");
     public static String sep = System.getProperty("file.separator");
     // get rid of this var. Will use a file list instead

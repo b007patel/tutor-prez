@@ -1,16 +1,19 @@
+// modified example code from
+// >> http://javabeat.net/asynchronous-servlet-servlet-3-0/
+// accessed on Sep 22, 2016
 package test.servlet;
 
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
-
-import java.sql.Connection;
-import java.sql.SQLException;
-import javax.sql.DataSource;
-import javax.naming.InitialContext;
-import javax.naming.Context;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 import javax.servlet.ServletException;
+import javax.servlet.AsyncContext;
+import javax.servlet.AsyncEvent;;
+import javax.servlet.AsyncListener;
+import javax.servlet.WriteListener;
+import javax.servlet.annotation.*;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -24,6 +27,9 @@ import tputil.*;
 import test.RunTest;
 import test.ChemRxnTest;
 
+@WebServlet(name = "TestRunnerServlet",
+        urlPatterns = {"/TestRunner"}, 
+        asyncSupported = true)
 public class TestRunnerServlet extends HttpServlet {
 
     /**
@@ -31,87 +37,83 @@ public class TestRunnerServlet extends HttpServlet {
      */
     private static final long serialVersionUID = 5236440105614337841L;
 
-    public static Connection getConnection() {
-        Connection conn = null;
-        try {
-            // Obtain our environment naming context
-            Context initCtx = new InitialContext();
-            Context envCtx = (Context) initCtx.lookup("java:comp/env");
-
-            // Look up our data source
-            DataSource ds = (DataSource) envCtx.lookup("jdbc/ChemTestDB");
-            conn = ds.getConnection();
-        } catch (SQLException sqle) {
-            sqle.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return conn;
-    }
-
-    protected void doGet(HttpServletRequest req,
+    protected void processRequest(HttpServletRequest req,
             HttpServletResponse resp) throws ServletException,
             IOException {
-        resp.setContentType("text/html");
-        String fail_pct = req.getParameter("pct");
+        EasyUtil.startLogging();
+        AsyncContext ac = req.startAsync();
+        //ac.setTimeout(7L * 60L * 1000L);
+        ac.setTimeout(0);
+        EasyUtil.log(EasyUtil.now() + " Async Servlet with thread: " +
+                Thread.currentThread().toString());
+        ac.addListener(new AsyncListener() {
+            @Override
+            public void onComplete(AsyncEvent event) throws IOException {
+                EasyUtil.log(EasyUtil.now() + " Async complete");
+            }
+        
+            @Override
+            public void onTimeout(AsyncEvent event) throws IOException {
+                EasyUtil.log(EasyUtil.now() + " Timed out...");
+            }
+        
+            @Override
+            public void onError(AsyncEvent event) throws IOException {
+                EasyUtil.log(EasyUtil.now() + " Error...");
+            }
+        
+            @Override
+            public void onStartAsync(AsyncEvent event) throws IOException {
+                EasyUtil.log(EasyUtil.now() + " Starting async...");
+            }
+        
+        });
 
-        // for called test class(es). May be removed or replaced with
-        // different RunTest methods
-        System.setProperty("tptest.wcprop", "/var/lib/tomcat7/webcli.props");
-        System.setProperty("tptest.dbprop", "/var/lib/tomcat7/db.props");
-        RunTest rt = new RunTest();
+        /**
+         * Scheduling the test running task using built-in ThreadPool-ing. Note
+         * that this passes the AsyncContext object to TestRunningTask
+         */
+        int threadsInPool = 10;
+        ScheduledThreadPoolExecutor exec =
+                new ScheduledThreadPoolExecutor(threadsInPool);
+        // add content header to force Chrome to process response properly
+        resp.addHeader("content-type", "application/x-javascript");
+        exec.execute(new TestRunnerTask(ac));
+    }
 
-        String client = req.getRemoteHost();
-        if (client == null || client.equals("")) {
-            client = req.getRemoteAddr();
+    @Override
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+        System.out.println(EasyUtil.now() + "  GET called");
+        processRequest(req, resp);
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
+        System.out.println(EasyUtil.now() + " POST called");
+        Enumeration<String> hnames, hdrs;
+        hnames = req.getHeaderNames();
+        while (hnames.hasMoreElements()) {
+            String hn = hnames.nextElement();
+            hdrs = req.getHeaders(hn);
+            while (hdrs.hasMoreElements()) {
+                System.out.println(hn + " -- " + hdrs.nextElement());
+            }
         }
-
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd-HH_mm-ss");
-        Date now = new Date();
-        String curtestdir = sdf.format(now);
-        curtestdir = client + "_" + curtestdir;
-        XmlSuite curxml = new XmlSuite();
-        XmlTest curtest = new XmlTest();
-        curtest.addParameter("fail_pct", fail_pct);
-        curtest.addParameter("servletCalled", "true");
-        HashMap<String, String> suiteMetaDataMap =
-                new HashMap<String, String>();
-        curtest.setClasses(Arrays.asList(new XmlClass(ChemRxnTest.class)));
-
-        EasyFileReader ezr = new EasyFileReader("/var/www/browser-info.txt");
-        // because the suite name is used as part of a Javascript function
-        // name in the HTML results, it cannot have '-'s or '.'s. Only '_'s
-        String browserinfo = ezr.readLine().trim().replace(' ', '_');
-        ezr.close();
-
-        String suite_name = "_" + fail_pct + "pct_fail";
-        if (fail_pct.equals("0")) {
-            suite_name = "_all_pass";
+        Map<String, String[]> parms = req.getParameterMap();
+        Set<String> pkeys = parms.keySet();
+        String[] currpv;
+        for (String currp : pkeys) {
+            System.out.print("<" + currp + "> -- ");
+            currpv = parms.get(currp);
+            for (int i=0; i < currpv.length; i++) {
+                System.out.print(", " + currpv[i]);
+            }
+            System.out.println();
         }
-        String osname = System.getProperty("os.name");
-        String brname = "Firefox";
-        if (browserinfo.contains("Chrome")) {
-            brname = "Chrome";
-        }
-        suite_name = brname + "_OS_" + osname + suite_name;
-        suite_name = suite_name.replace('-', '_');
-        suite_name = suite_name.replace('.', '_');
-        suite_name = suite_name.replace(' ', '_');
-        curxml.setName(suite_name);
-        rt.setDefaultSuiteName(curxml.getName());
-        curtest.setName("test.ChemRxnTest " + browserinfo + ", OS " +
-                osname + " ver " + System.getProperty("os.version"));
-        curtest.setSuite(curxml);
-        curxml.setTests(Arrays.asList(curtest));
-        curxml.setParameters(suiteMetaDataMap);
-        rt.setXmlSuites(Arrays.asList(curxml));
-
-        rt.setOutputDirectory("/var/www/testlogs/" + curtestdir);
-
-        rt.run();
-
-        resp.sendRedirect("https://bbaero.freeddns.org/testlogs/" +
-                curtestdir + "/index.html");
+        System.out.println(EasyUtil.now() + " done POST info");
+        processRequest(req, resp);
     }
 
 }

@@ -17,6 +17,12 @@ import com.beust.jcommander.*;
 
 import tputil.*;
 
+/*TODO:
+ - add TestNG listener to update servlet calling page with running status
+   (i.e., "Done test x, done test y, etc)
+ - add DB-based TestNG reporter classes
+*/
+
 public class RunTest extends TestNG {
 
     private static JCommander jc;
@@ -50,14 +56,15 @@ public class RunTest extends TestNG {
             usage_text = usage_text.insert(7, "\n "); // 7 = len of "Usage:"
             String args_template = "<class> <suffix> [<pname>=<pval>]\n" +
                     "       [<pname=<pval>] ....";
-            String rt_desc = "\nRuns <class> with suite name <browser>_OS_<os>_<suffix>\n" +
-                    "\nArguments (* - required):\n=========================\n" +
-                    "* <class> - name of test class that implements TestNG annotations\n" +
-                    "* <suffix> - suite-specific suffix\n" +
-                    "<pname>=<pval> - Set TestMG annotation @Parameter <pname> in <class>\n" +
-                    "                 to <pval>. All remaining arguments after <suffix> are\n" +
-                    "                 assumed to be <pname>=<pval> expressions.\n" +
-                    "=========================\n\n";
+            String rt_desc =
+                "\nRuns <class> with suite name <browser>_OS_<os>_<suffix>\n" +
+                "\nArguments (* - required):\n=========================\n" +
+                "* <class> - name of test class that implements TestNG annotations\n" +
+                "* <suffix> - suite-specific suffix\n" +
+                "<pname>=<pval> - Set TestMG annotation @Parameter <pname> in <class>\n" +
+                "                 to <pval>. All remaining arguments after <suffix> are\n" +
+                "                 assumed to be <pname>=<pval> expressions.\n" +
+                "=========================\n\n";
             offset = usage_text.indexOf("test.RunTest ") + 13;
             usage_text = usage_text.insert(offset, args_template);
             offset = usage_text.indexOf("Options");
@@ -86,7 +93,8 @@ public class RunTest extends TestNG {
             }
 
             if (args.length < 2) {
-                System.err.println("\n*** <testClass> and <suite_name> must be given!");
+                System.err.println("\n*** <testClass> and <suite_name> " +
+                        "must be given!");
                 showUsage();
             }
 
@@ -98,8 +106,10 @@ public class RunTest extends TestNG {
                 testClass =
                     ClassLoader.getSystemClassLoader().loadClass(testcls);
             } catch (ClassNotFoundException cnfe) {
-                System.err.format("\n*** Test class '%s' not found!\n", testcls);
-                System.err.println("*** If the class name is correct, check classpath!");
+                System.err.format("\n*** Test class '%s' not found!\n",
+                        testcls);
+                System.err.println("*** If the class name is correct, " +
+                        "check classpath!");
                 showUsage();
             }
 
@@ -175,12 +185,12 @@ public class RunTest extends TestNG {
                 FileInputStream fis = new FileInputStream(wcpropsfile);
                 webcliprops.loadFromXML(fis);
                 drvClassName = webcliprops.getProperty("web_driver_class");
-            } catch(Throwable thr) {
+            } catch(Exception e) {
                 System.err.format("\n*** Web Driver class '%s' not found!\n",
                         drvClassName);
                 System.err.format("*** Looked for web driver name in '%s'",
                         wcpropsfile);
-                showUsage(thr);
+                showUsage(e);
             }
 
             brcmd = ff_cmd;
@@ -207,9 +217,9 @@ public class RunTest extends TestNG {
                     browserinfo = "Google Chrome " +
                             rawcv.substring(0, rawcv.indexOf(EasyOS.sep));
                 }
-            } catch (Throwable thr) {
+            } catch (Exception e) {
                 System.err.println("*** Did not find browserinfo!!");
-                showUsage(thr);
+                showUsage(e);
             }
 
             String suite_name = "_" + suite_suffix;
@@ -235,7 +245,7 @@ public class RunTest extends TestNG {
         }
     }
 
-    public RunTest(Object ... parms) {
+    public RunTest(TPListener tpl) {
         // since the subclassing can of worms has been opened,
         // maybe custom Reporter class(es) can replace some or all
         // IReporter implementers below?
@@ -246,6 +256,7 @@ public class RunTest extends TestNG {
         JUnitReportReporter jurr = new JUnitReportReporter();
         XMLReporter xr = new XMLReporter();
         TestHTMLReporter thtr = new TestHTMLReporter();
+        this.addListener(tpl);
         this.addListener(xr);
         this.addListener(jurr);
         this.addListener(shr);
@@ -254,6 +265,10 @@ public class RunTest extends TestNG {
         this.addListener(thtr);
         this.addListener(mr);
         this.setUseDefaultListeners(false);
+    }
+
+    public RunTest() {
+        this(new TPListener(System.out));
     }
 
     public static void main(String[] args) {
@@ -272,7 +287,9 @@ public class RunTest extends TestNG {
                      new InputStreamReader(curprc.getInputStream()));
             cl = br.readLine();
             while (cl != null) {
-                if (!cl.contains("grep")) EasyOS.javapid = EasyOS.getProcIDFrPS(cl, 0);
+                if (!cl.contains("grep")) {
+                    EasyOS.javapid = EasyOS.getProcIDFrPS(cl, 0);
+                }
                 cl = br.readLine();
             }
             RunTest.CLParser clp = new RunTest.CLParser();

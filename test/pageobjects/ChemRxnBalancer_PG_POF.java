@@ -262,8 +262,8 @@ public class ChemRxnBalancer_PG_POF {
                     case 2:
                         rv = rv.replaceFirst(sterm, repterm);
                         break;
-            }
-            break;
+                }
+                break;
             case 5: //worksheet
                 switch (failtype) {
                 case 0:

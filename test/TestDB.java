@@ -8,6 +8,9 @@ import org.testng.annotations.*;
 
 public class TestDB {
 
+    private static Connection conn;
+    private static Statement stmt;
+
     public static Object[][] getAllCases() throws Exception {
         ResultSet suite_rs = null, sc_rs = null, case_rs = null;
         PreparedStatement sc_ps = null, case_ps= null;
@@ -47,9 +50,6 @@ public class TestDB {
         return rv;
     }
 
-    public static Connection conn;
-    private static Statement stmt;
-
     public static void setConnection(Connection conn_in) throws Exception {
         conn = conn_in;
         stmt = conn.createStatement();
@@ -60,7 +60,8 @@ public class TestDB {
         int rc = 0;
         String dbms, server, port, dbname, baseurl;
         if (propsfile.equals("")) {
-            propsfile = System.getenv("HOME") + "/gitrepo/tutor-prez/test/db.props";
+            propsfile = System.getenv("HOME") +
+                    "/gitrepo/tutor-prez/test/db.props";
         }
         Properties connprops = new Properties();
         FileInputStream fis = new FileInputStream(propsfile);
@@ -101,7 +102,8 @@ public class TestDB {
         return stmt.executeQuery(sqlstr);
     }
 
-    public static PreparedStatement prepStmt(String sqlstr) throws SQLException {
+    public static PreparedStatement prepStmt(String sqlstr)
+            throws SQLException {
         return conn.prepareStatement(sqlstr);
     }
 

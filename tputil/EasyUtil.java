@@ -9,6 +9,7 @@ import java.util.StringTokenizer;
 public class EasyUtil {
 
     private static PrintWriter logf;
+    private static boolean log_open;
     private static SimpleDateFormat sdf =
             new SimpleDateFormat("yyyy-MM-dd-HH_mm-ss");
 
@@ -42,6 +43,12 @@ public class EasyUtil {
     }
 
     public static void startLogging() {
+        try { 
+            if (log_open) return;
+        } catch (NullPointerException npe) {
+            log_open = false;
+        }
+
         String logname = EasyOS.getHomeDir() + EasyOS.sep + "sel_testlog.txt";
         try {
             logf = new PrintWriter(new FileOutputStream(logname, true));
@@ -56,11 +63,13 @@ public class EasyUtil {
                 logf = new PrintWriter(System.err);
             }
         }
+        log_open = true;
     }
 
     public static void stopLogging() {
         try {
             log(EasyUtil.now() + " -- Done\n");
+            log_open = false;
             logf.flush();
             logf.close();
         } catch (Exception e) {}
@@ -69,6 +78,7 @@ public class EasyUtil {
     public static void log(String str) {
         try {
             logf.println(str);
+            logf.flush();
         } catch (Exception e) {
             System.err.println("Cannot write to log file!!");
             e.printStackTrace();
