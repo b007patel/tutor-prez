@@ -6,10 +6,13 @@ import java.io.*;
 
 import org.testng.annotations.*;
 
+import test.servlet.TestRunnerDB;
+
 public class TestDB {
 
     private static Connection conn;
     private static Statement stmt;
+    private static boolean useJ2ee;
 
     public static Object[][] getAllCases() throws Exception {
         ResultSet suite_rs = null, sc_rs = null, case_rs = null;
@@ -50,13 +53,16 @@ public class TestDB {
         return rv;
     }
 
-    public static void setConnection(Connection conn_in) throws Exception {
-        conn = conn_in;
+    public static void setJ2eeConnection() throws Exception {
+        useJ2ee = true;
+        conn = TestRunnerDB.getInstance().getConnection();
+        System.out.flush();
         stmt = conn.createStatement();
     }
 
     public static int connect(String propsfile) throws IOException,
             SQLException, ClassNotFoundException {
+        useJ2ee = false;
         int rc = 0;
         String dbms, server, port, dbname, baseurl;
         if (propsfile.equals("")) {
@@ -112,7 +118,11 @@ public class TestDB {
             stmt.close();
             stmt = null;
 
-            conn.close();
+            if (useJ2ee) {
+                TestRunnerDB.getInstance().close(conn);
+            } else {
+                conn.close();
+            }
             conn = null;
         } catch (SQLException sqle) {
         } finally {
@@ -126,7 +136,11 @@ public class TestDB {
             }
             if (conn != null) {
                 try {
-                    conn.close();
+                    if (useJ2ee) {
+                        TestRunnerDB.getInstance().close(conn);
+                    } else {
+                        conn.close();
+                    }
                 } catch (SQLException sqle) {}
                 conn = null;
             }

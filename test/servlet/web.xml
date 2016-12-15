@@ -1,16 +1,25 @@
  <web-app>
      <servlet>
-         <servlet-name>TestRunnerServlet</servlet-name>
-         <servlet-class>test.servlet.TestRunnerServlet</servlet-class>
+         <servlet-name>TestRunner</servlet-name>
+         <servlet-class>test.servlet.TestRunner</servlet-class>
+     </servlet>
+ 
+     <servlet>
+         <servlet-name>TestRunnerRequestManager</servlet-name>
+         <servlet-class>test.servlet.TestRunnerRequestManager</servlet-class>
      </servlet>
  
      <servlet-mapping>
-         <servlet-name>TestRunnerServlet</servlet-name>
+         <servlet-name>TestRunner</servlet-name>
          <url-pattern>/TestRunner</url-pattern>
      </servlet-mapping>
 
+     <servlet-mapping>
+         <servlet-name>TestRunnerRequestManager</servlet-name>
+         <url-pattern>/TRRequest</url-pattern>
+     </servlet-mapping>
+
     <resource-ref>
-         <description>DB Connection</description>
          <res-ref-name>jdbc/ChemTestDB</res-ref-name>
          <res-type>javax.sql.DataSource</res-type>
          <res-auth>Container</res-auth>

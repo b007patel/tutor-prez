@@ -18,8 +18,6 @@ import com.beust.jcommander.*;
 import tputil.*;
 
 /*TODO:
- - add TestNG listener to update servlet calling page with running status
-   (i.e., "Done test x, done test y, etc)
  - add DB-based TestNG reporter classes
 */
 
@@ -113,10 +111,7 @@ public class RunTest extends TestNG {
                 showUsage();
             }
 
-            SimpleDateFormat sdf =
-                    new SimpleDateFormat("yyyy-MM-dd-HH_mm-ss");
-            Date now = new Date();
-            String curtestdir = sdf.format(now);
+            String curtestdir = EasyUtil.now();
             curtestdir = "testlogs" + EasyOS.sep + testcls + "_" + curtestdir;
             if (logdir.length() < 1) {
                 rt.setOutputDirectory(curtestdir);
@@ -275,7 +270,6 @@ public class RunTest extends TestNG {
         try {
             // replace java process code with code that looks for browser
             // processes before testing. Those will be saved to a file list
-            // First check if file saving is possible (i.e., servlet or not)
             // then killProcess can refer to that file to know which
             // processes are excluded
             Process curprc;

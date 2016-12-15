@@ -3,6 +3,8 @@
 // use localized strings?
 include "../php/chem_funcs.php";
 $page_title = "Chemical Reaction Balancer (by Inspection)";
+$GLOBALS['have_footer'] = false;
+$GLOBALS['have_endhtml'] = false;
 include "../php/html-start-tmpl.php";
 include "../php/nav-tmpl.php";
 echo <<<"EOT"
@@ -141,6 +143,8 @@ echo <<<"EOT"
 	</div>
 EOT;
 //include "../php/footer-tmpl.php";
+//$GLOBALS['have_footer']=true;
 $custom_scripts = "tp_common,chem_validate";
 Equation::closeDbgFile();
 include "../php/html-end-tmpl.php";
+$GLOBALS['have_endhtml'] = true;

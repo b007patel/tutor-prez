@@ -52,8 +52,8 @@ public class ChemRxnBalancer_PG_POF {
 
     public WebElement getReactionFromDiv(WebElement rdiv)
            throws Exception {
-        WebElement rxn = rdiv.findElement(By.tagName("font"));
-        return rxn;
+        WebElement rv = rdiv.findElement(By.tagName("font"));
+        return rv;
     }
 
     public WebElement getStep(int stepnum) {
@@ -286,7 +286,7 @@ public class ChemRxnBalancer_PG_POF {
         return rv;
     }
 
-    public void setRandomGen(Random rnd_in) {rnd = rnd_in;}
+    public void setRandomGen(Random rnd) {this.rnd = rnd;}
 
     public ChemRxnBalancer_PG_POF(WebDriver drv) throws BadPgObjException {
         webdrv = drv;

@@ -1,12 +1,17 @@
+<?php
+if (!$GLOBALS['have_endhtml']) {
+	echo <<<'EOB'
 
 	<!-- Bootstrap core JavaScript
 	================================================== -->
 	<!-- Placed at the end of the document so the pages load faster -->
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
 	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
-<?php
-	//echo '	<script src="https://'.$_SERVER['SERVER_NAME'].'/js/lightbox.min.js"></script>'.chr(10);
-	echo '	<script src="https://'.$_SERVER['SERVER_NAME'].'/js/custom.js"></script>'.chr(10);
+	<script src="/js/site-common.js"></script>
+
+EOB;
+	/*echo '	<script src="https://'.$_SERVER['SERVER_NAME'].'/js/lightbox.min.js"></script>'.chr(10);
+	echo '	<script src="https://'.$_SERVER['SERVER_NAME'].'/js/custom.js"></script>'.chr(10);*/
 	$ord_a = ord("a"); $ord_z = ord("z");
 	$cjs = explode(",", $custom_scripts);
 	foreach ($cjs as $i=>$js_name) {
@@ -21,6 +26,10 @@
 
 SCR;
 	}
-?>
+	echo <<<'EOD'
+
 	</body>
 </html>
+EOD;
+}
+?>

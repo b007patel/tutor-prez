@@ -106,11 +106,12 @@ public class EasyOS {
             EasyUtil.log("Could not verify number of processes left");
             numprocs =-1;
         }
-        EasyUtil.log(String.format("***** numLProcsLeft returns %d\n\n", numprocs));
+        EasyUtil.log(String.format("***** numLProcsLeft returns %d\n\n",
+                numprocs));
         return numprocs;
     }
 
-    public static int killProcess(String pname, String[] exclusions)
+    /*public static int killProcess(String pname, String[] exclusions)
             throws Exception {
         Process curprc;
         String ppgid = "", cl;
@@ -198,6 +199,27 @@ public class EasyOS {
     public static int killProcess(String procname) throws Exception {
         String[] excls = {"-bash", "login"};
         return killProcess(procname, excls);
+    }*/
+
+    public static void  killProcess(String procname) throws Exception {
+        String kill_os_cmd = "killall %s";
+        if (isWin()) {
+            kill_os_cmd = "taskkill /f /fi \"imagename eq %s\"";
+        }
+        String kill_cmd = String.format(kill_os_cmd, procname);
+        Process kill_prc = runProcess(kill_cmd, true);
+
+        System.out.println("'" + kill_cmd + "' output");
+        System.out.println("=============================================");
+        BufferedReader br = new BufferedReader(
+                new InputStreamReader(kill_prc.getInputStream()));
+        String cl = br.readLine();
+
+        while (cl != null) {
+            System.out.println(cl);
+            cl = br.readLine();
+        }
+        System.out.println("=============================================");
     }
 
     /**

@@ -2,9 +2,14 @@ package test;
 
 import org.testng.*;
 import java.io.OutputStream;
+import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.FileWriter;;
 import javax.servlet.ServletOutputStream;
 import java.text.SimpleDateFormat;
+
+import test.servlet.TestRunnerState;
+import tputil.EasyUtil;
 
 public class TPListener extends TestListenerAdapter {
 
@@ -12,6 +17,7 @@ public class TPListener extends TestListenerAdapter {
     protected OutputStream ostr;
     protected PrintWriter pw;
     protected ServletOutputStream sostr;
+    protected FileWriter cacheout;
     protected boolean inServlet;
     protected long starttime;
     protected SimpleDateFormat sdf;
@@ -21,10 +27,14 @@ public class TPListener extends TestListenerAdapter {
         tp_methods = this.getAllTestMethods();
         pw = null;
         sostr = null;
+        cacheout = null;
         try {
             sostr = (ServletOutputStream)ostr;
             sostr.print("");
+            cacheout = TestRunnerState.getInstance().clearCacheWriter();
         } catch (Exception e) {
+            // BP debug
+            e.printStackTrace(); //end BP debug
             try {
                 pw = new PrintWriter(ostr);
                 pw.print("");
@@ -34,7 +44,7 @@ public class TPListener extends TestListenerAdapter {
             }
         }
 
-        sdf = new SimpleDateFormat("yyyy-MM-dd, HH:mm:ss");
+        sdf = new SimpleDateFormat("yyyy-MM-dd, HH:mm:ss z");
     }
 
     public TPListener() {
@@ -45,27 +55,31 @@ public class TPListener extends TestListenerAdapter {
         String outstr = str;
         try {
             sostr.println(outstr);
-            System.out.println("DEBUG to srvout - " + outstr);
+            EasyUtil.log("to srvout - " + outstr);
             sostr.flush();
-            System.out.println("DEBUG srvout flush OK");
+            cacheout.write(outstr);
+            cacheout.flush();
         } catch (Exception e) {
+            EasyUtil.log("BP DBG TPListener - log call failed!");
+            e.printStackTrace();
+            System.err.println("\n++++++++++++++++++++++++++++++++++++++\n");
             pw.println(outstr);
             pw.flush();
-            System.out.println("DEBUG SYS.out flush OK");
         }
     }
 
     protected void log(String str, Object... parms) {
         String outstr = str;
         outstr = String.format(str, parms);
-        System.out.println("DEBUG - " + outstr);
+        this.log(outstr);
+        /*EasyUtil.log("to srvout - " + outstr);
         try {
             sostr.println(outstr);
             sostr.flush();
         } catch (Exception e) {
             pw.println(outstr);
             pw.flush();
-        }
+        }*/
     }
 
     protected String getElapsed(long curtime) {

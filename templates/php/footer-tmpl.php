@@ -1,3 +1,7 @@
+<?php
+if (!$GLOBALS['have_footer']) {
+	echo <<<'EOB'
+
 	</div>
 
 	<footer class="footer hidden-xs">
@@ -9,7 +13,8 @@
 					</span>
 				</li>
 
-<?php
+
+EOB;
 	foreach ( $footer_imgs as $currILI ) {
 		$ili = new ImageLI( 4, "footer" );
 		$ili->setLabel( $currILI["label"] );
@@ -18,7 +23,8 @@
 		$ili->setImageLoc( $currILI["imgloc"] );
 		echo $ili->listItemMarkup();
 	}
-?>
+
+	echo <<<'EOD'
 			    <li>
 			        <span>
 			            <a class="footer-text text-center" href="/about.php#technologies">and more...</a>
@@ -29,3 +35,5 @@
 		</div>
 	</footer>
 	
+EOD;
+}

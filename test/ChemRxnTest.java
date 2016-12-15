@@ -3,12 +3,6 @@
 // accessed on Aug 23, 2016
 package test;
 
-import test.pageobjects.ChemRxnBalancer_PG_POF;
-import test.servlet.TestRunnerTask;
-//import test.servlet.TestRunnerServlet;
-import tputil.EasyOS;
-import tputil.EasyUtil;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.sql.*;
@@ -27,6 +21,11 @@ import org.openqa.selenium.support.PageFactory;
 import org.testng.annotations.*;
 import org.jsoup.nodes.Document;
 import org.jsoup.Jsoup;
+
+import test.pageobjects.ChemRxnBalancer_PG_POF;
+import test.servlet.TestRunnerState;
+import tputil.EasyOS;
+import tputil.EasyUtil;
 
 /* TODO:
  - get WebDriver "dynamically" (currently working with props file/-D switch
@@ -55,6 +54,7 @@ public class ChemRxnTest {
     private boolean wantFails;
     private Integer NEGASSERT_SUITE, ERR_TYPE, WARN_TYPE;
     private Random rnd;
+    private boolean inSC;
     ChemRxnBalancer_PG_POF CRBPage;
     PreparedStatement vsteps_ps = null, vrxns_ps = null, pvs_ps = null;
     ArrayList<String> vs_types, suite_descs;
@@ -64,11 +64,14 @@ public class ChemRxnTest {
     private int defImpliedWait = 60;
     private int rxnDivWait = 2;
 
-    public ChemRxnTest() {
+    public ChemRxnTest(boolean inSC) {
         super();
+        this.inSC = inSC;
         rnd = new Random();
         dbg_out = "";
     }
+
+    public ChemRxnTest() { this(false); };
 
     // this should be in another package visible to all classes using
     // Selenium
@@ -98,10 +101,9 @@ public class ChemRxnTest {
     private WebDriver startWebDriver(Class<?> drvcl, String dc_name)
             throws Exception {
         WebDriver wd = null;
-        String drvexec = "";
+        String[] drvexecs;
         int att = 0, max_atts = 5;
 
-        EasyUtil.log(EasyUtil.now() + " -- in startWebDriver\n");
         while (att < max_atts) {
             try {
                 if (drvcl != null) {
@@ -131,13 +133,29 @@ public class ChemRxnTest {
                 EasyUtil.log(String.format("+=+=+=+= chrome is hung!! kill" +
                         "attempt %d\n\n", att));
                 if (dc_name.endsWith("ChromeDriver")) {
-                    drvexec = "chromedriver";
+                    if (EasyOS.isWin()) {
+                        drvexecs = new String[1];
+                        drvexecs[0] = "chrom*";
+                    } else {
+                        drvexecs = new String[2];
+                        drvexecs[0] = "chromedriver";
+                        drvexecs[1] = "chrome";
+                    }
                 } else {
-                    drvexec = "gecko?";
+                    if (EasyOS.isWin()) {
+                        drvexecs = new String[1];
+                        drvexecs[0] = "geck*?";
+                        drvexecs[1] = "firefox?";
+                    } else {
+                        drvexecs = new String[2];
+                        drvexecs[0] = "gecko?";
+                        drvexecs[1] = "firefox";
+                    }
                 }
-                String[] saved_procs={"java ", "./"};
-                EasyOS.killProcess(drvexec, saved_procs);
-                Thread.sleep(1000);
+                for (int curprc = 0; curprc < drvexecs.length; curprc++) {
+                    EasyOS.killProcess(drvexecs[curprc]);
+                    Thread.sleep(1000);
+                }
             }
             att++;
         }
@@ -154,10 +172,10 @@ public class ChemRxnTest {
         String indisp = inp_doc.html().trim();
         String exdisp = exp_doc.html().trim();
         boolean verified = exdisp.equals(indisp);
-        //System.out.format("DEBUG - raw exp is %s\n\tTrying reg html...\n\n", ehtml);
+        //EasyUtil.log(String.format("DEBUG - raw exp is %s\n\tTrying reg html...\n\n", ehtml));
         // in case outer tags are different
         if (verified) {
-            //System.out.println("DEBUG - Using outer html instead\n");
+            //EasyUtil.log("DEBUG - Using outer html instead\n");
             indisp = inp_doc.outerHtml().trim();
             exdisp = exp_doc.outerHtml().trim();
             verified = exdisp.equals(indisp);
@@ -350,14 +368,28 @@ public class ChemRxnTest {
         }
     }
 
-    private void connectToTestDB(boolean inSC) throws Exception {
-        if (inSC) {
-            TestDB.setConnection(TestRunnerTask.getConnection());
-            //TestDB.setConnection(TestRunnerServlet.getConnection());
-        } else {
-            TestDB.connect();
+    private void connectToTestDB() throws Exception {
+        EasyUtil.log(String.format("inSC=%b, ", inSC));
+        this.inSC = inSC;
+        try {
+            if (inSC) {
+                TestDB.setJ2eeConnection();
+            } else {
+                TestDB.connect();
+            }
+        } catch (Exception e) {
+              e.printStackTrace();
+              System.err.flush();
+              throw e;
         }
     }
+
+    private int tmpcnt = 0;
+    private void tmpLognum(String opt) {
+        EasyUtil.log("ChemRxnTest " + opt + "- " + Integer.toString(tmpcnt));
+        tmpcnt ++;
+    }
+    private void tmpLognum(){ tmpLognum(""); }
 
     @BeforeTest
     @Parameters ( {"fail_pct", "run_pct", "from_case", "to_case",
@@ -366,105 +398,112 @@ public class ChemRxnTest {
             @Optional("1") int fromCase, @Optional("-1") int toCase,
             boolean inSC) throws Exception {
         EasyUtil.startLogging();
-        EasyUtil.log("servletCalled is " + (inSC?"TRUE":"FALSE"));
-        System.out.println("servletCalled is " + (inSC?"TRUE":"FALSE"));
-        suite_run_pct = runpct;
-        suite_fail_pct = failpct;
-        // use a Java cmd line -D property to set props file
-        String webclipropsfile = System.getProperty("tptest.wcprop",
-                System.getenv("HOME") + "/webcli.props");
-
-        Properties webcliprops = new Properties();
-        FileInputStream fis = new FileInputStream(webclipropsfile);
-        webcliprops.loadFromXML(fis);
-
-        drvClassName = webcliprops.getProperty("web_driver_class");
-        cds = null;
-        if (drvClassName.endsWith("ChromeDriver")) {
-            cds = startChromeDriverService();
-            chrdc = DesiredCapabilities.chrome();
-            HashMap<String, Object> chrcaps = new HashMap<String, Object>();
-            ArrayList<String> chrargs = new ArrayList<String>();
-            chrargs.add("--disable-extensions");
-            chrargs.add("--enable-low-res-tiling");
-            chrargs.add("--enable-lru-snapshot-cache");
-            chrargs.add("--use-simple-cache-backend");
-            chrcaps.put("args", chrargs);
-            chrdc.setCapability(ChromeOptions.CAPABILITY, chrcaps);
-        }
         try {
-            drvClass =
-                ClassLoader.getSystemClassLoader().loadClass(drvClassName);
-        } catch (ClassNotFoundException cnfe) {
-            drvClass = null;
-        }
-        connectToTestDB(inSC);
-        vrxns_ps = TestDB.prepStmt("select reaction_type, vr_text " +
-                "from verify_reaction where case_id = ?");
-        vsteps_ps = TestDB.prepStmt("select vs_type_id, vs_text " +
-                "from verify_step where case_id = ?");
-        ResultSet vstypes_rs = TestDB.execSql("select " +
-                "type_id, type_name from verify_type");
-        vs_types = new ArrayList<String>();
-        vs_types.add("");
-        while (vstypes_rs.next()) {
-            Integer vs_type_id = vstypes_rs.getInt("type_id");
-            String vs_type_name = vstypes_rs.getString("type_name");
-            if (vs_type_name.equals("Error")) ERR_TYPE = vs_type_id;
-            if (vs_type_name.equals("Warning")) WARN_TYPE = vs_type_id;
-            vs_types.add(vs_type_id, vs_type_name);
-        }
-        ResultSet suitedescs_rs = TestDB.execSql("select " +
-                "suite_id, suite_desc from test_suite");
-        String curr_s_desc;
-        Integer curr_s_id;
-        suite_descs = new ArrayList<String>();
-        suite_descs.add("");
-        while (suitedescs_rs.next()) {
-            curr_s_id = suitedescs_rs.getInt("suite_id");
-            curr_s_desc = suitedescs_rs.getString("suite_desc");
-            if (curr_s_desc.toLowerCase().contains("negative assertion")) {
-                NEGASSERT_SUITE = curr_s_id;
+            this.inSC = inSC;
+            EasyUtil.log("servletCalled is " + (inSC?"TRUE":"FALSE"));
+            suite_run_pct = runpct;
+            suite_fail_pct = failpct;
+            // use a Java cmd line -D property to set props file
+            String webclipropsfile = System.getProperty("tptest.wcprop",
+                    System.getenv("HOME") + "/webcli.props");
+    
+            Properties webcliprops = new Properties();
+            FileInputStream fis = new FileInputStream(webclipropsfile);
+            webcliprops.loadFromXML(fis);
+    
+            drvClassName = webcliprops.getProperty("web_driver_class");
+            tmpLognum();
+            cds = null;
+            if (drvClassName.endsWith("ChromeDriver")) {
+                cds = startChromeDriverService();
+                chrdc = DesiredCapabilities.chrome();
+                HashMap<String, Object> chrcaps = new HashMap<String, Object>();
+                ArrayList<String> chrargs = new ArrayList<String>();
+                chrargs.add("--disable-extensions");
+                chrargs.add("--enable-low-res-tiling");
+                chrargs.add("--enable-lru-snapshot-cache");
+                chrargs.add("--use-simple-cache-backend");
+                chrcaps.put("args", chrargs);
+                chrdc.setCapability(ChromeOptions.CAPABILITY, chrcaps);
             }
-            suite_descs.add(curr_s_id, curr_s_desc);
+            try {
+                drvClass =
+                    ClassLoader.getSystemClassLoader().loadClass(drvClassName);
+            } catch (ClassNotFoundException cnfe) {
+                drvClass = null;
+            }
+            connectToTestDB();
+            vrxns_ps = TestDB.prepStmt("select reaction_type, vr_text " +
+                    "from verify_reaction where case_id = ?");
+            vsteps_ps = TestDB.prepStmt("select vs_type_id, vs_text " +
+                    "from verify_step where case_id = ?");
+            ResultSet vstypes_rs = TestDB.execSql("select " +
+                    "type_id, type_name from verify_type");
+            vs_types = new ArrayList<String>();
+            vs_types.add("");
+            while (vstypes_rs.next()) {
+                Integer vs_type_id = vstypes_rs.getInt("type_id");
+                String vs_type_name = vstypes_rs.getString("type_name");
+                if (vs_type_name.equals("Error")) ERR_TYPE = vs_type_id;
+                if (vs_type_name.equals("Warning")) WARN_TYPE = vs_type_id;
+                vs_types.add(vs_type_id, vs_type_name);
+            }
+            ResultSet suitedescs_rs = TestDB.execSql("select " +
+                    "suite_id, suite_desc from test_suite");
+            String curr_s_desc;
+            Integer curr_s_id;
+            suite_descs = new ArrayList<String>();
+            suite_descs.add("");
+            while (suitedescs_rs.next()) {
+                curr_s_id = suitedescs_rs.getInt("suite_id");
+                curr_s_desc = suitedescs_rs.getString("suite_desc");
+                if (curr_s_desc.toLowerCase().contains("negative assertion")) {
+                    NEGASSERT_SUITE = curr_s_id;
+                }
+                suite_descs.add(curr_s_id, curr_s_desc);
+            }
+    
+            // choose random failing cases if requested
+            cases_to_fail = new ArrayList<Integer>();
+            wantFails = failpct > 0;
+            if (!wantFails) return;
+    
+            pvs_ps = TestDB.prepStmt("select vs_type_id from verify_step " +
+                    "group by case_id, vs_type_id having case_id=?");
+            ResultSet crs = TestDB.execSql("select case_id from test_case");
+            //ResultSet crs = TestDB.execSql("select case_id from test_case where case_id < 13");
+            while (crs.next()) {
+                cases_to_fail.add(Integer.valueOf(crs.getInt("case_id")));
+            }
+            int totcases = cases_to_fail.size();
+            // if you do not divide by a decimal, then integer division
+            // occurs. That operation truncates doubles/floats to longs/ints
+            int casecnt = (int)Math.round(totcases * failpct / 100.0);
+            if (casecnt < 1) casecnt = 1;
+            ArrayList<Integer> tmplist = new ArrayList<Integer>();
+            int delindex = -1;
+            for (int i=0; i < casecnt; i++) {
+                // delete a random element from cases_to_fail
+                delindex = rnd.nextInt(Math.abs(totcases - tmplist.size()));
+                if (delindex < 0) delindex = 0;
+                tmplist.add(cases_to_fail.get(delindex));
+                cases_to_fail.remove(delindex);
+            }
+    
+            cases_to_fail.removeAll(cases_to_fail);
+            cases_to_fail.addAll(tmplist);
+            Collections.sort(cases_to_fail);
+            tmplist.removeAll(tmplist);
+            // debug - confirm that random lists are generated
+            /*ChemRxnTest.dbg_out = "";
+            for (Integer cidint : cases_to_fail) {
+                dbg_out  += String.format("Overall CID to change: %d\n", cidint.intValue());
+            }*/
+        } catch (Exception e) {
+            EasyUtil.log("Exception in ChemRxnTest beforeTest!");
+            e.printStackTrace();
+            throw e;
         }
-
-        // choose random failing cases if requested
-        cases_to_fail = new ArrayList<Integer>();
-        wantFails = failpct > 0;
-        if (!wantFails) return;
-
-        pvs_ps = TestDB.prepStmt("select vs_type_id from verify_step " +
-                "group by case_id, vs_type_id having case_id=?");
-        ResultSet crs = TestDB.execSql("select case_id from test_case");
-        //ResultSet crs = TestDB.execSql("select case_id from test_case where case_id < 13");
-        while (crs.next()) {
-            cases_to_fail.add(Integer.valueOf(crs.getInt("case_id")));
-        }
-        int totcases = cases_to_fail.size();
-        // if you do not divide by a decimal, then integer division occurs.
-        // That operation truncates doubles/floats to longs/ints
-        int casecnt = (int)Math.round(totcases * failpct / 100.0);
-        if (casecnt < 1) casecnt = 1;
-        ArrayList<Integer> tmplist = new ArrayList<Integer>();
-        int delindex = -1;
-        for (int i=0; i < casecnt; i++) {
-            // delete a random element from cases_to_fail
-            delindex = rnd.nextInt(Math.abs(totcases - tmplist.size()));
-            if (delindex < 0) delindex = 0;
-            tmplist.add(cases_to_fail.get(delindex));
-            cases_to_fail.remove(delindex);
-        }
-
-        cases_to_fail.removeAll(cases_to_fail);
-        cases_to_fail.addAll(tmplist);
-        Collections.sort(cases_to_fail);
-        tmplist.removeAll(tmplist);
-        // debug - confirm that random lists are generated
-        /*ChemRxnTest.dbg_out = "";
-        for (Integer cidint : cases_to_fail) {
-            dbg_out  += String.format("Overall CID to change: %d\n", cidint.intValue());
-        }*/
     }
 
     @BeforeMethod
@@ -563,7 +602,9 @@ public class ChemRxnTest {
     public void afterTest() {
         cds.stop();
         TestDB.cleanup();
-        EasyUtil.stopLogging();
+        if (!inSC) {
+            EasyUtil.stopLogging();
+        }
         System.out.println("debug output:\n**********");
         System.out.println(dbg_out);
     }
