@@ -51,10 +51,7 @@ public class TestRunnerTask implements Runnable, PropertyChangeListener  {
     }
 
     public TestRunnerTask(AsyncContext aCtx, String runUrl) {
-        this.aCtx = aCtx;
-        this.runUrl = runUrl;
-        this.start_time = new Date();
-        TestRunnerState.getInstance().addPropertyChangeListener(this);
+        this(aCtx, runUrl, new Date());
     }
 
     public Date getStartTime() {
@@ -76,22 +73,10 @@ public class TestRunnerTask implements Runnable, PropertyChangeListener  {
                     EasyUtil.log("TR Task - old AsyncCtx %s did not " +
                             "complete. Called oldAC.complete()", oldacstr);
                 }
-            } catch (IllegalStateException oldACIllSExp) {
-                // for some reason aCtx.req.isAsyncStarted() returns true
-                // even if aCtx is complete. According to servlet API this
-                // should not be the case
-                String expmsg = oldACIllSExp.getMessage();
-                try {
-                    expmsg = expmsg.toLowerCase();
-                } catch (NullPointerException npe) { expmsg = ""; }
-                if (!expmsg.contains("asynccontext") && 
-                        !expmsg.contains("asynccomplete()")) {
-                    throw (oldACIllSExp);
-                }
             } catch (Exception oldACExp) {
                 EasyUtil.log("TR Task - unexpected exception while trying " +
                         "to clean up oldAC %s!.", oldacstr);
-                oldACExp.printStackTrace();
+                EasyUtil.showThrow(oldACExp, true);
                 System.err.println();
             }
             try {
@@ -114,7 +99,7 @@ public class TestRunnerTask implements Runnable, PropertyChangeListener  {
             } catch (Exception e) {
                 EasyUtil.log("Cannot set TaskRunner's servletOutputStream " +
                         "to a new value!!");
-                e.printStackTrace();
+                EasyUtil.showThrow(e);
                 System.err.println();
             }
         }
@@ -161,7 +146,8 @@ public class TestRunnerTask implements Runnable, PropertyChangeListener  {
             }
 
             srvout = resp.getOutputStream();
-            tpsl = new TPServletListener(srvout);
+            this.tpsl = new TPServletListener();
+            tpsl.setOutputStream(srvout);
 
             // for called test class(es). May be removed or replaced with
             // different RunTest methods
@@ -227,7 +213,7 @@ public class TestRunnerTask implements Runnable, PropertyChangeListener  {
             rt.run();
 
         } catch (Exception e) {
-            e.printStackTrace();
+            EasyUtil.showThrow(e);
         } finally {
             try {
                 EasyUtil.log("TRTask: closing repsonse and completing aCtx");

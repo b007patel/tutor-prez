@@ -24,14 +24,17 @@ import tputil.EasyUtil;
 public class TestRunnerState {
     private static TestRunnerState instance = new TestRunnerState();
     private final String CACHE_FNAME = "/var/lib/tomcat8/._chem_srvlt_cache_";
+    private File cache_f;
     private FileReader cachein;
     private FileWriter cacheout;
+    private Long prevCacheSize;
     private PropertyChangeSupport pcs;
     private Exception browser_exc;
     private AsyncContext aCtx;
     private Date currentStart;
     private Boolean toBeRun;
     private Boolean hadBrowserExc;
+    private long last_cachesize;
     private TestRunnerRequest runningReq;
 
     private TestRunnerState() {
@@ -40,6 +43,9 @@ public class TestRunnerState {
         aCtx = null;
         currentStart = null;
         runningReq = null;
+        cache_f = new File(CACHE_FNAME);
+        last_cachesize = 0;
+        prevCacheSize = new Long(0);
         toBeRun = new Boolean(false);
         hadBrowserExc = new Boolean(false);
     }
@@ -52,14 +58,14 @@ public class TestRunnerState {
 
     public void deleteCache() {
         try {
-            new File(CACHE_FNAME).delete();
+            cache_f.delete();
         } catch (Exception e) {
             EasyUtil.log("Cannot delete test cache!\n");
         }
     }
 
     public FileReader openCacheReader() throws IOException {
-        cachein = new FileReader(CACHE_FNAME);
+        cachein = new FileReader(cache_f);
         return cachein;
     }
 
@@ -72,14 +78,44 @@ public class TestRunnerState {
     }
 
     public FileWriter clearCacheWriter() throws IOException {
-        // erase cache, then re-opem it as appendable
-        cacheout = new FileWriter(CACHE_FNAME);
+        // erase cache, then re-open it as appendable
+        cacheout = new FileWriter(cache_f);
         try {
+            System.err.println("** BP - " + EasyUtil.now() + " in clearCacheWriter\n");
             cacheout.write("");
             cacheout.close();
         } catch (Exception e) { /* already closed */}
-        cacheout = new FileWriter(CACHE_FNAME, true);
+        cacheout = new FileWriter(cache_f, true);
+        prevCacheSize = new Long(0);
+        last_cachesize = 0;
         return cacheout;
+    }
+
+    public long getPrevCacheSize() {
+        synchronized (prevCacheSize) {
+            return prevCacheSize.longValue();
+        }
+    }
+
+    public boolean setPrevCacheSize() {
+        synchronized(prevCacheSize) {
+            long curr_cachesize = cache_f.length();
+            EasyUtil.log("TRState - in sync,prevCacheSize=%d currsize=%d",
+                    prevCacheSize.longValue(), curr_cachesize);
+            if (prevCacheSize.longValue() >= curr_cachesize) {
+                return curr_cachesize == last_cachesize;
+            }
+            last_cachesize = curr_cachesize;
+            Long oldPrevCacheSize = prevCacheSize;
+            Long newPrevCacheSize = new Long(curr_cachesize);
+            prevCacheSize = curr_cachesize;
+            // in case prevCacheSize changes need to trigger events
+            /*EasyUtil.log("TRState - in sync,prevCacheSize=>%d firing " +
+                    "prevCacheSize prop change...", curr_cachesize);
+            pcs.firePropertyChange("prevCacheSize", oldPrevCacheSize,
+                    newPrevCacheSize);*/
+            return true;
+        }
     }
 
     public void setBrowserException(Exception exc_in) {
@@ -115,11 +151,11 @@ public class TestRunnerState {
         } catch (IllegalStateException IllSExp) {
             sentErrMsg = true;
         } catch (Exception e) {
-           EasyUtil.log("TRState - setBrowserExcp - Unexpected exception " +
-                   "confirming aCtx is closed!");
-           e.printStackTrace();
-           System.err.println();
-           sentErrMsg = true;
+            EasyUtil.log("TRState - setBrowserExcp - Unexpected exception " +
+                    "confirming aCtx is closed!");
+            EasyUtil.showThrow(e);
+            System.err.println();
+            sentErrMsg = true;
         }
         
         // now that the running AsyncContext is complete, empty queue

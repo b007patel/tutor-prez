@@ -28,7 +28,7 @@ public class TestRunnerDB {
             ds = (DataSource) envCtx.lookup("jdbc/ChemTestDB");
         } catch (NamingException e) {
             EasyUtil.log("\n==> Error getting datasource's Naming Context!");
-            e.printStackTrace();
+            EasyUtil.showThrow(e);
         }
     }
 

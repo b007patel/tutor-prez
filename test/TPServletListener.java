@@ -2,6 +2,13 @@ package test;
 
 import org.testng.*;
 import javax.servlet.ServletOutputStream;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.FileWriter;
+import javax.servlet.ServletOutputStream;
+import java.text.SimpleDateFormat;
+
+import tputil.EasyUtil;
 import test.servlet.TestRunnerState;
 
 /**
@@ -13,16 +20,63 @@ import test.servlet.TestRunnerState;
 
 public class TPServletListener extends TPListener {
 
+    private ServletOutputStream sostr;
+    private FileWriter cacheout;
+    private PrintWriter pw;
+    private boolean inServlet;
     private int cur_test = 0;
     private int fail_cnt = 0;
     private int skip_cnt = 0;
 
-    public TPServletListener(ServletOutputStream ostr) {
-        super(ostr);
+    public TPServletListener() {
+        super();
+        pw = null;
+        sostr = null;
+        cacheout = null;
+        try {
+            cacheout = TestRunnerState.getInstance().clearCacheWriter();
+        } catch (Exception e) {
+            EasyUtil.log("*** CANNOT SEND TEST OUTPUT TO BROWSER!!! ***");
+            EasyUtil.showThrow(e);
+        }
     }
 
-    public void setOutputStream(ServletOutputStream ostr) {
-        sostr = ostr;
+    @Override
+    public void setOutputStream(OutputStream ostream) {
+        try {
+            sostr = (ServletOutputStream)ostream;
+            sostr.print("");
+        } catch (Exception e) {
+            // BP debug
+            EasyUtil.showThrow(e); //end BP debug
+            try {
+                pw = new PrintWriter(ostream);
+                pw.print("");
+            } catch (Exception e2) {
+                try { pw = new PrintWriter((System.out)); }
+                catch (Exception e3) { // unrecoverable error - exit
+                    EasyUtil.showThrow(e3); System.exit(127);
+                }
+            }
+        }
+    }
+
+    @Override
+    protected void log(String str) {
+        String outstr = str;
+        try {
+            sostr.println(outstr);
+            EasyUtil.log("to srvout - " + outstr);
+            sostr.flush();
+            cacheout.write(outstr);
+            cacheout.flush();
+        } catch (Exception e) {
+            EasyUtil.log("BP DBG TPListener - log call failed!");
+            EasyUtil.showThrow(e);
+            System.err.println("\n++++++++++++++++++++++++++++++++++++++\n");
+            pw.println(outstr);
+            pw.flush();
+        }
     }
 
     @Override

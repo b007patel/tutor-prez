@@ -45,7 +45,7 @@ public class TestRunnerRequestAsyncListener implements AsyncListener {
         EasyUtil.log("TR Req Mgr - Async %s error for req index %d...",
                 acstr, reqIndex);
         try {
-            event.getThrowable().printStackTrace();
+            EasyUtil.showThrow(event.getThrowable());
         } catch (Exception e) {
             System.err.println("Async error could not be retrieved!");
         }

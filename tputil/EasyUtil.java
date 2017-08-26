@@ -2,7 +2,7 @@ package tputil;
 
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.PrintWriter;
+import java.io.PrintStream;
 import java.text.SimpleDateFormat;
 import java.util.Properties;
 import java.util.Date;
@@ -10,7 +10,7 @@ import java.util.StringTokenizer;
 
 public class EasyUtil {
 
-    private static PrintWriter logf;
+    private static PrintStream logf;
     private static boolean log_open;
     private static SimpleDateFormat sdf =
             new SimpleDateFormat("yyyy-MM-dd-HH_mm-ss");
@@ -87,7 +87,7 @@ public class EasyUtil {
             }
         } catch (Exception e) {
             log("Error while trying to kill " + drvexecs[curprc] + "!!");
-            e.printStackTrace();
+            EasyUtil.showThrow(e);
             System.err.println();
         }
     }
@@ -100,25 +100,67 @@ public class EasyUtil {
         }
 
         if (!useLogFile) {
-            logf = new PrintWriter(System.out);
+            logf = new PrintStream(System.out);
             log_open = true;
             return;
         }
 
         String logname = EasyOS.getHomeDir() + EasyOS.sep + "sel_testlog.txt";
         try {
-            logf = new PrintWriter(new FileOutputStream(logname, true));
+            logf = new PrintStream(new FileOutputStream(logname, true));
         } catch (Exception e) {
             // may be in servlet container. Try System.out
             try {
-                logf = new PrintWriter(System.out);
+                logf = new PrintStream(System.out);
             } catch (Exception reale) {
                 System.err.println(EasyUtil.now() +
                         " Cannot log to System.out!!");
-                reale.printStackTrace();
+                EasyUtil.showThrow(reale);
             }
         }
         log_open = true;
+    }
+
+    public static void showThrow(Throwable thr, PrintStream ps,
+            boolean filterstack) {
+        if (!filterstack) { thr.printStackTrace(ps); return; }
+
+        ps.println(thr);
+        StackTraceElement[] stack = thr.getStackTrace();
+ 
+        int last_shown =-1;
+        String cname;
+        for (int i = 0; i < stack.length; i++ ) {
+            cname = stack[i].getClassName();
+            if (cname.startsWith("test") || cname.startsWith("tputil.")) {
+                if ((i - last_shown) > 1) {
+                    ps.println("\t<..SNIP..>");
+                }
+                ps.println("\tat " + stack[i]);
+                last_shown = i;
+            }
+            //System.err.println(">> TO SYS ERR:");
+            //System.err.println(stack[i]);
+        }
+        // if no stack trace output, print full trace
+        if (last_shown < 0) {
+            ps.println("<no test* or tputil.* classes in stack>");
+            for (int i = 0; i < stack.length; i++ ) {
+                ps.println("\tat " + stack[i]);
+            }
+        }
+    }
+
+    public static void showThrow(Throwable thr, PrintStream ps) {
+        EasyUtil.showThrow(thr, ps, false);
+    }
+
+    public static void showThrow(Throwable thr, boolean filterstack) {
+        EasyUtil.showThrow(thr, System.err, filterstack);
+    }
+
+    public static void showThrow(Throwable thr) {
+        EasyUtil.showThrow(thr, System.err, false);
     }
 
     public static void startLogging() {
@@ -143,7 +185,7 @@ public class EasyUtil {
         } catch (Exception e) {
             System.err.println(EasyUtil.now() +
                     " Cannot log message to file or System.out!!");
-            e.printStackTrace();
+            EasyUtil.showThrow(e);
         }
      }
 

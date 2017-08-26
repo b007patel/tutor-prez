@@ -69,7 +69,7 @@ public class TestRunnerQueue {
         } catch (Exception e) {
             EasyUtil.log("Unexpected exception adding to " +
                     "request queue!");
-            e.printStackTrace();
+            EasyUtil.showThrow(e);
         }
 	EasyUtil.log("TRQueue - add out of sync block returns -1\n");
         return -1;

@@ -314,7 +314,7 @@ public class TestRunnerRequestManager extends HttpServlet
                     } catch (Exception e) {
                         EasyUtil.log("run start time is still null");
                         EasyUtil.log("==> Exception was '%s'", e.toString());
-                        EasyUtil.log("BP debug: "); e.printStackTrace();
+                        EasyUtil.log("BP debug: "); EasyUtil.showThrow(e);
                     }
                 }
             }*/

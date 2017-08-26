@@ -26,7 +26,7 @@ public class EasyOS {
                 rv = System.getenv("HOME");
             }
         } catch (Throwable thr) {
-            thr.printStackTrace();
+            EasyUtil.showThrow(thr);
         }
 
         return rv;
@@ -250,7 +250,7 @@ public class EasyOS {
                     proc.waitFor());
             System.err.println(EasyOS.runPrStrOut(pna));
         } catch (Throwable thr) {
-            thr.printStackTrace();
+            EasyUtil.showThrow(thr);
         }
     }
 }

@@ -2,70 +2,33 @@ package test;
 
 import org.testng.*;
 import java.io.OutputStream;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.FileWriter;;
-import javax.servlet.ServletOutputStream;
+import java.io.PrintStream;
 import java.text.SimpleDateFormat;
 
-import test.servlet.TestRunnerState;
 import tputil.EasyUtil;
 
 public class TPListener extends TestListenerAdapter {
 
     protected ITestNGMethod[] tp_methods;
     protected OutputStream ostr;
-    protected PrintWriter pw;
-    protected ServletOutputStream sostr;
-    protected FileWriter cacheout;
-    protected boolean inServlet;
+    protected PrintStream ps;
     protected long starttime;
     protected SimpleDateFormat sdf;
  
-    public TPListener(OutputStream ostr) {
+    public TPListener() {
         super();
         tp_methods = this.getAllTestMethods();
-        pw = null;
-        sostr = null;
-        cacheout = null;
-        try {
-            sostr = (ServletOutputStream)ostr;
-            sostr.print("");
-            cacheout = TestRunnerState.getInstance().clearCacheWriter();
-        } catch (Exception e) {
-            // BP debug
-            e.printStackTrace(); //end BP debug
-            try {
-                pw = new PrintWriter(ostr);
-                pw.print("");
-            } catch (Exception e2) {
-                try { pw = new PrintWriter((System.out)); }
-                catch (Exception e3) {}
-            }
-        }
-
+        ps = null;
         sdf = new SimpleDateFormat("yyyy-MM-dd, HH:mm:ss z");
     }
 
-    public TPListener() {
-        this(System.out);
+    public void setOutputStream(OutputStream outstream) {
+        ps = new PrintStream(outstream);
+        EasyUtil.startLogging();
     }
-
+ 
     protected void log(String str) {
-        String outstr = str;
-        try {
-            sostr.println(outstr);
-            EasyUtil.log("to srvout - " + outstr);
-            sostr.flush();
-            cacheout.write(outstr);
-            cacheout.flush();
-        } catch (Exception e) {
-            EasyUtil.log("BP DBG TPListener - log call failed!");
-            e.printStackTrace();
-            System.err.println("\n++++++++++++++++++++++++++++++++++++++\n");
-            pw.println(outstr);
-            pw.flush();
-        }
+        ps.println(str);
     }
 
     protected void log(String str, Object... parms) {
@@ -77,8 +40,8 @@ public class TPListener extends TestListenerAdapter {
             sostr.println(outstr);
             sostr.flush();
         } catch (Exception e) {
-            pw.println(outstr);
-            pw.flush();
+            ps.println(outstr);
+            ps.flush();
         }*/
     }
 

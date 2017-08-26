@@ -156,7 +156,7 @@ public class TestRunnerDispatcher implements ServletContextListener {
                 } catch (SQLException e) {
                     System.err.println("Error deregistering JDBC driver " +
                             driver.toString());
-                    e.printStackTrace();
+                    EasyUtil.showThrow(e);
                 }
             } else {
                 // driver was not registered by the webapp's ClassLoader and

@@ -102,7 +102,7 @@ public class TestRunner extends HttpServlet {
                 String acstr = EasyUtil.briefObjToString(
                         event.getAsyncContext());
                 EasyUtil.log("TRunner - Async %s Error...", acstr);
-                event.getThrowable().printStackTrace();
+                EasyUtil.showThrow(event.getThrowable());
             }
 
             @Override
@@ -116,9 +116,13 @@ public class TestRunner extends HttpServlet {
 
         char[] cachedOutput = new char[5120];
         FileReader cachein = null;
+        int cachesize = -1;
         boolean startRun = true;
         try {
             cachein = TestRunnerState.getInstance().openCacheReader();
+            // if the last output was larger than the newest output
+            if (!TestRunnerState.getInstance().setPrevCacheSize()) return;
+
             startRun = !cachein.ready();
             ServletOutputStream sostr = resp.getOutputStream();
             while (cachein.ready()) {
@@ -130,6 +134,13 @@ public class TestRunner extends HttpServlet {
             // no cached output
         }
 
+        // NYI: remove redundant TestRunnerTask instantiations
+        // Possible solutions:
+        // 1) use a new compound class to store queue info, then
+        //    instaniate TRTask in TRDispatch.addRemTask() (maybe a new
+        //    method name, TRDispatch.requestRemTaskAdd()?)
+        // 2) still enqueue TRTasks, but have all JS-initiated reqs set
+        //    a post parm (e.g., fromJS, js, ...)
         if (startRun) {
             EasyUtil.log("TRunner - calling TRDispatch.addRemTask...");
             /*String run_pct = req.getParameter("runpct");

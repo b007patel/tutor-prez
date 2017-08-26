@@ -15,5 +15,5 @@ if [ -n "${1}" ]; then
 fi
 
 pushd ~/gitrepo/tutor-prez
-${jdk8dir}/bin/javac ${dbg_flag} -cp "${HOMEDIR}/java-jars/selenium-server-standalone-2.53.1.jar:${HOMEDIR}/java-jars/jsoup-1.9.2.jar:${HOMEDIR}/java-jars/mysql-connector-java-5.1.17.jar:." tputil/*.java test/*.java test/pageobjects/*.java test/servlet/*.java
+${jdk8dir}/bin/javac ${dbg_flag} -cp "${HOMEDIR}/java-jars/selenium-server-standalone-2.53.1.jar:${HOMEDIR}/java-jars/jsoup-1.9.2.jar:${HOMEDIR}/java-jars/mysql-connector-java-5.1.17.jar:." tputil/*.java testbp/*.java test/*.java test/pageobjects/*.java test/servlet/*.java
 popd

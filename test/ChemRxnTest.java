@@ -93,7 +93,7 @@ public class ChemRxnTest {
             rv.start();
         } catch (Exception e) {
             EasyUtil.log("Cannot start ChromeDriverService!!!");
-            e.printStackTrace();
+            EasyUtil.showThrow(e);
         }
         return rv;
     }
@@ -266,13 +266,13 @@ public class ChemRxnTest {
                 } catch (Exception e) {
                     EasyUtil.log("Unexpected exception looking for " +
                             "alternate reaction div!");
-                    e.printStackTrace();
+                    EasyUtil.showThrow(e);
                 }
                 inp_html = excp_we.getAttribute("innerHTML").trim();
             } catch (Exception e) {
                 EasyUtil.log("Unexpected exception looking for reaction " +
                         "div!");
-                e.printStackTrace();
+                EasyUtil.showThrow(e);
             }
             drv.manage().timeouts().implicitlyWait(
                     defImpliedWait, TimeUnit.SECONDS);
@@ -378,9 +378,9 @@ public class ChemRxnTest {
                 TestDB.connect();
             }
         } catch (Exception e) {
-              e.printStackTrace();
-              System.err.flush();
-              throw e;
+            EasyUtil.showThrow(e);
+            System.err.flush();
+            throw e;
         }
     }
 
@@ -501,7 +501,7 @@ public class ChemRxnTest {
             }*/
         } catch (Exception e) {
             EasyUtil.log("Exception in ChemRxnTest beforeTest!");
-            e.printStackTrace();
+            EasyUtil.showThrow(e);
             throw e;
         }
     }

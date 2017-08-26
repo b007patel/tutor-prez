@@ -67,12 +67,12 @@ public class RunTest extends TestNG {
             usage_text = usage_text.insert(offset, args_template);
             offset = usage_text.indexOf("Options");
             usage_text = usage_text.insert(offset, rt_desc);
-            System.err.println(usage_text);
             if (thr != null) {
-                System.err.println();
-                thr.printStackTrace();
+                System.err.println("\n*** EXCEPTION THROWN!!! ***\n");
+                EasyUtil.showThrow(thr, true);
                 System.err.println();
             }
+            System.err.println(usage_text);
             System.exit(1);
         }
 
@@ -85,7 +85,9 @@ public class RunTest extends TestNG {
             String hdir = EasyOS.getHomeDir();
 
             // argument parsing
-            RunTest rt = new RunTest();
+            TPListener tpl = new TPListener();
+            tpl.setOutputStream(System.out);
+            RunTest rt = new RunTest(tpl);
             if (showHelp) {
                 showUsage();
             }
@@ -260,10 +262,6 @@ public class RunTest extends TestNG {
         this.addListener(thtr);
         this.addListener(mr);
         this.setUseDefaultListeners(false);
-    }
-
-    public RunTest() {
-        this(new TPListener(System.out));
     }
 
     public static void main(String[] args) {
