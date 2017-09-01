@@ -185,6 +185,7 @@ public class TestRunnerState {
                 aCtx = ac;
             }
         } catch (NullPointerException npe) { aCtx = ac; }
+        // assigning new AC does not implicitly fire the event
         pcs.firePropertyChange("runningAsyncContext", oldAC, newAC);
     }
 

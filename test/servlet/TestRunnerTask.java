@@ -73,6 +73,16 @@ public class TestRunnerTask implements Runnable, PropertyChangeListener  {
                     EasyUtil.log("TR Task - old AsyncCtx %s did not " +
                             "complete. Called oldAC.complete()", oldacstr);
                 }
+            } catch (IllegalStateException oldACISExp) {
+                String ise_msg = oldACISExp.getMessage();
+
+                // if the IllegalStateExcp was not thrown by an AC, then
+                // don't handle it. According to J2EE 7 spec,
+                // AC.getRequest() will throw an IllegalStateExcp when the
+                // AC is completed or dispatched.
+                if (!ise_msg.contains("AsyncContext")) {
+                    throw oldACISExp;
+                }
             } catch (Exception oldACExp) {
                 EasyUtil.log("TR Task - unexpected exception while trying " +
                         "to clean up oldAC %s!.", oldacstr);

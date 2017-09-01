@@ -49,7 +49,7 @@ public class TestRunner extends HttpServlet {
             String url = req.getHeader("referer");
             EasyUtil.log("Referer url - '" + url + "'");
             url = url.substring(url.indexOf("?") + 1);
-            /*EasyUtil.log("Parms - '" + url + "'\n");
+            EasyUtil.log("Parms - '" + url + "'\n");
             StringTokenizer post_parms = new StringTokenizer(url, "&");
             String cur_parm;
             while (post_parms.hasMoreTokens()) {
@@ -61,7 +61,7 @@ public class TestRunner extends HttpServlet {
                 } else if (cur_parm.startsWith("ts=")) {
                     rv[2] = cur_parm.substring(cur_parm.indexOf("=") + 1);
                 }
-            }*/
+            }
         }
         return rv;
     }
@@ -134,13 +134,6 @@ public class TestRunner extends HttpServlet {
             // no cached output
         }
 
-        // NYI: remove redundant TestRunnerTask instantiations
-        // Possible solutions:
-        // 1) use a new compound class to store queue info, then
-        //    instaniate TRTask in TRDispatch.addRemTask() (maybe a new
-        //    method name, TRDispatch.requestRemTaskAdd()?)
-        // 2) still enqueue TRTasks, but have all JS-initiated reqs set
-        //    a post parm (e.g., fromJS, js, ...)
         if (startRun) {
             EasyUtil.log("TRunner - calling TRDispatch.addRemTask...");
             /*String run_pct = req.getParameter("runpct");

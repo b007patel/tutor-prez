@@ -283,9 +283,7 @@ public class TestRunnerRequestManager extends HttpServlet
         if (indexChanged) {
             stylemod = " style='font-size: x-large;'";
         }
-        if (runningStartTime != null) {
-            runningSTString = sdf.format(runningStartTime);
-        } else if (reqIndex >= 0) {
+        if ((runningStartTime == null) && (reqIndex >= 0)) {
             // if for some reason start time is sitting at <unknown> while
             // there is a request to be serviced, then:
             // 1) wait for time to change (i.e., for dispatcher to service
@@ -302,7 +300,7 @@ public class TestRunnerRequestManager extends HttpServlet
                 Thread.sleep(DISPATCH_POLL_INTERVAL);
             } catch (InterruptedException intex) {}
             runningStartTime = TestRunnerState.getInstance().getStartTime();
-            /*if (runningStartTime == null) {
+            if (runningStartTime == null) {
                 TestRunnerState.getInstance().getRunningReq().markAsServiced();
                 while (runningStartTime == null) {
                     try {
@@ -317,7 +315,10 @@ public class TestRunnerRequestManager extends HttpServlet
                         EasyUtil.log("BP debug: "); EasyUtil.showThrow(e);
                     }
                 }
-            }*/
+            }
+        }
+        if (runningStartTime != null) {
+            runningSTString = sdf.format(runningStartTime);
         }
         EasyUtil.log("TR Req Mgr - received start time of " + runningSTString);
         timediff = new Date().getTime() - reqTime;
