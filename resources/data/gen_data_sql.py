@@ -1,13 +1,15 @@
 # accepts an argument of dbtype, validated against a list of known dbtypes
-# creates an sql file (default name full_test_data.sql) based on inputs given
-# in the manually created test_data.sql
+# creates an sql file based on inputs in database. These inputs are
+# maintained manually in test_data.sql
 import sys, os
+from optparse import OptionParser
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 import MySQLdb
 from ChemRxnBalancer_PG import ChemRxnBalancer_PG
 
+DEFAULT_TC_OUTPUT_SQLFILE = "test_case_data.sql"
 rxn_start = 'insert into "verify_reaction" ("reaction_type", "case_id", ' +\
         '"vr_text")\n    values (\n    '
 step_start = 'insert into "verify_step" ("vs_type_id", "case_id", ' +\
@@ -17,7 +19,7 @@ step_start = 'insert into "verify_step" ("vs_type_id", "case_id", ' +\
 def getStepStatements(stdiv, cid, extra):
     rv = ""
     steps = stdiv.find_elements_by_tag_name("li")
-    stype = '2' if extra else '1'
+    stype = "2" if extra else "1"
     for st in steps:
         stepstr = st.get_attribute("innerHTML").strip()
         first_span_end = stepstr.find(">") + 1
@@ -47,16 +49,39 @@ def getWksRows(wksdiv, stnum, cid, indent_l=0):
             rv +=  "');\n"
     return rv
 
-def main():
-    sqlf_name = "test_case_data.sql"
-    if (len(sys.argv) > 1):
-        sqlf_name = sys.argv[1]
-        if (sqlf_name[:-4] != '.sql'): sqlf_name += '.sql'
+def get_cl_args(parser):
+    exec_fname = os.path.realpath(__file__)
+    resdata_dir = os.sep + "resources" + os.sep + "data"
+    repos_path = exec_fname[:exec_fname.find(resdata_dir)]
+    default_dbprops = repos_path + os.sep + "test" + os.sep + "db.props"
+    usage = "%prog [options]\n" + "=" * 70 + "\n" +\
+            "Generate test case verification data based on test input in " +\
+            "database"
+    parser.usage = usage
+    parser.add_option("-f", "--file", dest="filename", \
+            default=DEFAULT_TC_OUTPUT_SQLFILE, help=\
+            "output SQL file containing verification data. Default is " +\
+            DEFAULT_TC_OUTPUT_SQLFILE)
+    parser.add_option("-d", "--dbprops", dest="dbprops_file", \
+            default=default_dbprops, help=\
+            "properties file containing DB connection info. Default is " +\
+            default_dbprops)
+    (opts, args) = parser.parse_args()
+
+    dbprops_ok = True
+    try:
+        fsz = os.path.getsize(opts.dbprops_file)
+        dbprops_ok = fsz > 5
+    except:
+        dbprops_ok = False
+    if not dbprops_ok:
+        parser.error("\n==> DB properties file " + opts.dbprops_file +\
+                " is not a valid file!")
 
     exit_py = False
     try:
-        fsz = os.path.getsize(sqlf_name)
-        print "The file '{!s}' exists.".format(sqlf_name)
+        fsz = os.path.getsize(opts.filename)
+        print "The file '{!s}' exists.".format(opts.filename)
         reply = raw_input("Overwrite?(y/N)> ")
         if (not reply.lower().startswith("y")):
             exit_py = True
@@ -66,8 +91,13 @@ def main():
     print
     if exit_py:
         sys.exit(0)
+    return opts
+
+def main():
+    parser = OptionParser()
+    opts = get_cl_args(parser)
         
-    with open("../../test/db.props") as f:
+    with open(opts.dbprops_file) as f:
         for line in f:
             if (line.find("dbms") > 0):
                 dbms = line[line.find(">") + 1:line.rfind("<")]
@@ -77,6 +107,13 @@ def main():
                 dbuser = line[line.find(">") + 1:line.rfind("<")]
             if (line.find("password") > 0):
                 dbpwd = line[line.find(">") + 1:line.rfind("<")]
+
+    try:
+        dummy = dbms
+        dummy = dbname
+    except UnboundLocalError:
+        parser.error("\n==> DB props file " + opts.dbprops_file +\
+                " exists, but is an invalid format")
 
     # output db-specific preamble, if any (e.g., use <dbname>)
 
@@ -98,7 +135,7 @@ def main():
             'tc.case_exec FROM test_case tc, suite_case sc ' +\
             "where sc.case_id = tc.case_id")
 
-    outf = open(sqlf_name, "w")
+    outf = open(opts.filename, "w")
     print >> outf, pre_script
 
     for row in cur.fetchall():
