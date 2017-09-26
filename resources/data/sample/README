@@ -1,0 +1,17 @@
+This directory contains sample output in OpenOffice document (.odt) format.
+
+It should be updated whenever test verification data is updated.
+
+Directory structure:
+
+sample (this dir)
+-- suite name - directory
+--- test case - document
+----- test case name of form
+   <test num in suite>-<short test case name>.odt
+
+e.g., sample/02-complex-tests/02-anion-cation-same-elem.odt refers to
+-- the second suite "complex-tests" which contains
+---- the second test case within the suite, "anion-cation-same-elem". This
+     short name was formed from the long name, "Anion and cation with
+     same element", taken from ../data/ansi/test_data.sql
