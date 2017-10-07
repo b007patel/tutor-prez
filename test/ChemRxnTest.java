@@ -5,6 +5,8 @@ package test;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.net.URL;
+import java.net.HttpURLConnection;
 import java.sql.*;
 import java.util.Collections;
 import java.util.Properties;
@@ -55,6 +57,7 @@ public class ChemRxnTest {
     private Integer NEGASSERT_SUITE, ERR_TYPE, WARN_TYPE;
     private Random rnd;
     private boolean inSC;
+    private String test_url;
     ChemRxnBalancer_PG_POF CRBPage;
     PreparedStatement vsteps_ps = null, vrxns_ps = null, pvs_ps = null;
     ArrayList<String> vs_types, suite_descs;
@@ -384,6 +387,43 @@ public class ChemRxnTest {
         }
     }
 
+    private String getTestURL() {
+        String rem_base = "https://bbaero.freeddns.org";
+        String local_base = "https://localhost";
+        String crb_url = "/tutor-prez/web/chem/balance.php";
+        String rv = "";
+        String httpcodestr = "-1", httpmsg = "see exception above";
+        boolean remOK = true;
+        URL t_url = null;
+        HttpURLConnection httpconn = null;
+        int httpcode = -1;
+
+        rv = rem_base + crb_url;
+        try {
+            EasyUtil.log("Trying test url '" + rv + "'...");
+            t_url = new URL(rv);
+            httpconn = (HttpURLConnection)t_url.openConnection();
+            httpconn.setRequestMethod("GET");
+            httpconn.connect();
+            httpcode = httpconn.getResponseCode();
+            httpcodestr = Integer.toString(httpcode);
+            httpmsg = httpconn.getResponseMessage();
+            remOK = httpcode == 200;
+        } catch (Exception e) {
+            EasyUtil.log("==> Cannot access remote test URL!!");
+            EasyUtil.showThrow(e, true);
+            remOK = false;
+        }
+        if (!remOK) {
+            rv = local_base + crb_url;
+            EasyUtil.log("Remote failed HTTP " + httpcodestr + " - " +
+                    httpmsg + ".");
+            EasyUtil.log("Defaulting to test url '" + rv + "'...");
+        }
+        EasyUtil.log("Test URL is '" + rv + "'");
+        return rv;
+    }
+
     private int tmpcnt = 0;
     private void tmpLognum(String opt) {
         EasyUtil.log("ChemRxnTest " + opt + "- " + Integer.toString(tmpcnt));
@@ -401,16 +441,17 @@ public class ChemRxnTest {
         try {
             this.inSC = inSC;
             EasyUtil.log("servletCalled is " + (inSC?"TRUE":"FALSE"));
+            test_url = getTestURL();
             suite_run_pct = runpct;
             suite_fail_pct = failpct;
             // use a Java cmd line -D property to set props file
             String webclipropsfile = System.getProperty("tptest.wcprop",
                     System.getenv("HOME") + "/webcli.props");
-    
+
             Properties webcliprops = new Properties();
             FileInputStream fis = new FileInputStream(webclipropsfile);
             webcliprops.loadFromXML(fis);
-    
+
             drvClassName = webcliprops.getProperty("web_driver_class");
             tmpLognum();
             cds = null;
@@ -462,12 +503,12 @@ public class ChemRxnTest {
                 }
                 suite_descs.add(curr_s_id, curr_s_desc);
             }
-    
+
             // choose random failing cases if requested
             cases_to_fail = new ArrayList<Integer>();
             wantFails = failpct > 0;
             if (!wantFails) return;
-    
+
             pvs_ps = TestDB.prepStmt("select vs_type_id from verify_step " +
                     "group by case_id, vs_type_id having case_id=?");
             ResultSet crs = TestDB.execSql("select case_id from test_case");
@@ -489,7 +530,7 @@ public class ChemRxnTest {
                 tmplist.add(cases_to_fail.get(delindex));
                 cases_to_fail.remove(delindex);
             }
-    
+
             cases_to_fail.removeAll(cases_to_fail);
             cases_to_fail.addAll(tmplist);
             Collections.sort(cases_to_fail);
@@ -512,7 +553,8 @@ public class ChemRxnTest {
         drv.manage().timeouts().pageLoadTimeout(30, TimeUnit.SECONDS);
         drv.manage().timeouts().implicitlyWait(
                 defImpliedWait, TimeUnit.SECONDS);
-        drv.get("https://bbaero.freeddns.org/tutor-prez/web/chem/balance.php");
+        EasyUtil.log("test_url is: " + test_url);
+        drv.get(test_url);
         CRBPage = PageFactory.initElements(drv, ChemRxnBalancer_PG_POF.class);
         CRBPage.setRandomGen(rnd);
     }
