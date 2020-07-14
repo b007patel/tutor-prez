@@ -1,0 +1,121 @@
+# grouped by +ve charge/-ve charge, then sorted by
+# - non-O/H element, alphabetically
+# - form of this element's polyatomic ions, from complex to simple
+# - duplicates by chemical formula will be commented out, with the lowest
+#   charge form remaining uncommented
+# This ordering is key to avoid misidentifying more complex ions as a
+# mixture of simpler ions and/or elements (e.g., to avoid interpreting
+# HCO3[-] as two separate components H and CO3[2-])
+#
+# If exporting from Libre Calc try replacing '^"#' with '#"' to fix
+# commented out ions
+"C5H6N","pyridinium",1
+"C5H5O","pyrylium",1
+#"CrO2","chromyl",2
+"Hg2","mercury (I)",2
+"NH4","ammonium",1
+#"NO2","nitronium",1
+#"O2","dioxygenyl",1
+"UO2","uranyl",2
+"VO2","pervanadyl",1
+"VO","vanadyl",2
+"H3O","hydronium",1
+"Al2O4","aluminate",-2
+"AlO2","aluminate",-1
+"H2AsO4","dihydrogen arsenate",-1
+"HAsO4","hydrogen arsenate",-2
+"AsO4","arsenate",-3
+"AsO3","arsenite",-3
+"B4O7","tetraborate",-2
+"BO3","borate",-3
+"BO2","metaborate",-1
+"BrO","hypobromite",-1
+"BrO2","bromite",-1
+"BrO3","bromate",-1
+"BrO4","perbromate",-1
+"HCO3","hydrogen carbonate",-1
+"HCO3","bicarbonate",-1
+"HCO2","formate",-1
+#"HCO2","formiate",-1
+"(CH(OH)COO)2","tartrate",-2
+"CH3C6H4SO3","tosylate",-1
+#"CH3C6H4SO3","toluenesulfonate",-1
+"CH3COO","acetate",-1
+"C6H5COO","benzoate",-1
+"C6H5O7","citrate",-3
+"C2H3O2","acetate",-1
+"C2O4","oxalate",-2
+"CF3SO3","triflate",-1
+#"CF3SO3","trifluoromethanesulfonate",-1
+"CNO","fulminate",-1
+"CN","cyanide",-1
+"CO3","carbonate",-2
+"CO2","carbonite",-2
+"C2","carbide",-2
+"ClO4","perchlorate",-1
+"ClO3","chlorate",-1
+"ClO2","chlorite",-1
+"ClO","hypochlorite",-1
+"Cr2O7","dichromate",-2
+"CrO4","chromate",-2
+#"Fe(CN)6","ferricyanide",-3
+"Fe(CN)6","ferrocyanide",-4
+"FeO4","ferrate",-2
+"IO4","periodate",-1
+"IO3","iodate",-1
+"IO2","iodite",-1
+"IO","hypoiodite",-1
+"I3","thiodide",-1
+#"MnO4","permanganate",-1
+"MnO4","manganate",-2
+"MoO4","molybdate",-2
+"NCO","isocyanate",-1
+"N2H3","hydrazide",-1
+"NH2","amide",-1
+"NO3","nitrate",-1
+"NO2","nitrite",-1
+"N3","azide",-1
+"OCN","cyanate",-1
+"OH","hydroxide",-1
+"O3","ozonide",-1
+#"O2","superoxide",-1
+"O2","peroxide",-2
+"H2PO4","dihydrogen phosphate",-1
+"H2PO3","dihydrogen phosphite",-1
+"HPO4","hydrogen phosphate",-2
+"HPO3","hydrogen phosphite",-2
+"P2O7","pyrophosphate",-4
+"PO4","phosphate",-3
+"PO3","phosphite",-3
+"PO2","hypophosphite",-3
+"PbO3","plumbate",-2
+"PbO2","plumbite",-2
+"ReO4","perrhenate",-1
+"HSO3","hydrogen sulfite",-1
+"HSO4","hydrogen sulfate",-1
+"S2O8","peroxodisulfate",-2
+"S2O3","thiosulfate",-2
+"SCN","thiocyanate",-1
+"SO5","peroxomonosulfate",-2
+"SO4","sulfate",-2
+"SO3","sulfite",-2
+"SO2","hyposulfite",-2
+"S2","disulfide",-2
+"SbO4","antimonate",-3
+"SbO3","antimonite",-3
+"SeO4","selenate",-2
+"SeO3","selenite",-2
+"Si2O7","pyrosilicate",-6
+"Si2O5","disilicate",-2
+"SiO4","orthosilicate",-4
+#"SiO3","metasilicate",-2
+"SiO3","silicate",-2
+"SnO3","stannate",-2
+"SnO2","stannite",-2
+"TcO4","pertechnetate",-1
+"HTe","hydrogen telluride",-1
+"TeO6","orthotellurite",-6
+"TeO4","metatellurate",-2
+"TeO3","tellurite",-2
+"VO4","vanadate",-3
+"WO4","tungstate",-2
